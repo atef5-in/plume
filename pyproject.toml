@@ -1,0 +1,48 @@
+[project]
+name = "plume"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx",
+    "pyperclip",
+    "pynput",
+    "platformdirs",
+    "pydantic>=2",
+    "python-dotenv",
+    "tomli-w",
+]
+
+[project.optional-dependencies]
+gui = ["PyQt6"]
+
+[project.scripts]
+plume = "plume.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "mypy",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-httpx",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"plume/prompts.py" = ["E501"]
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
