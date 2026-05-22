@@ -27,9 +27,15 @@ _PAD = 5      # gap between window edge and ring outer boundary
 
 
 class FloatingWidget:
-    def __init__(self, root: tk.Tk, on_click: Callable[[], None]) -> None:
+    def __init__(
+        self,
+        root: tk.Tk,
+        on_click: Callable[[], None],
+        on_right_click: Callable[[], None] | None = None,
+    ) -> None:
         self._root = root
         self._on_click = on_click
+        self._on_right_click = on_right_click
         self._drag_start_x = 0
         self._drag_start_y = 0
         self._dragging = False
@@ -59,6 +65,7 @@ class FloatingWidget:
         self._canvas.bind("<ButtonPress-1>", self._on_press)
         self._canvas.bind("<B1-Motion>", self._on_drag)
         self._canvas.bind("<ButtonRelease-1>", self._on_release)
+        self._canvas.bind("<ButtonRelease-3>", self._on_right_release)
         self._canvas.bind("<Enter>", self._on_enter)
         self._canvas.bind("<Leave>", self._on_leave)
 
@@ -153,6 +160,10 @@ class FloatingWidget:
     def _on_release(self, _e: tk.Event[tk.Canvas]) -> None:
         if not self._dragging:
             self._on_click()
+
+    def _on_right_release(self, _e: tk.Event[tk.Canvas]) -> None:
+        if self._on_right_click is not None:
+            self._on_right_click()
 
     def _apply_circle_mask(self) -> None:
         try:

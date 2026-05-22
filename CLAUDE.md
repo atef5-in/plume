@@ -8,9 +8,9 @@ A desktop tool for Ubuntu that fixes French spelling, accents, apostrophes, and 
 
 ## ⚠️ GUI branch note
 
-The original plan specifies PyQt6. This machine runs Ubuntu 20.04 (glibc 2.31) which is below PyQt6's minimum (glibc 2.34). Phase 3 is therefore implemented with **tkinter + pystray** instead. This is a temporary deviation — when the machine is upgraded to Ubuntu 22.04/24.04, Phase 3 should be rewritten with PyQt6 as originally planned. The CLI (Phases 1–2) is unaffected.
+The original plan specifies PyQt6. This machine runs Ubuntu 20.04 (glibc 2.31) which is below PyQt6's minimum (glibc 2.34). Phases 3–4 are therefore implemented with **tkinter + pystray** instead. This is a temporary deviation — when the machine is upgraded to Ubuntu 22.04/24.04, the GUI should be rewritten with PyQt6. The CLI (Phases 1–2) is unaffected.
 
-## Current state — Phase 3 in progress
+## Current state — Phase 4 complete
 
 ```
 plume/
@@ -29,8 +29,10 @@ plume/
 │   ├── notifier.py     # notify() via notify-send
 │   ├── prompts.py      # SYSTEM_PROMPT constant
 │   ├── replace.py      # replace_selection() — sets clipboard, simulates Ctrl+V
-│   ├── tray.py         # TrayIcon (pystray, optional — fails gracefully)
-│   └── widget.py       # FloatingWidget (tkinter, frameless, always-on-top)
+│   ├── settings.py     # SettingsDialog (tkinter Toplevel, opened via right-click)
+│   ├── tray.py         # TrayIcon (pystray, optional — fails gracefully on GNOME)
+│   ├── widget.py       # FloatingWidget (tkinter, frameless, always-on-top)
+│   └── wizard.py       # FirstRunWizard (tkinter Toplevel, shown on first launch)
 └── tests/
     ├── test_clipboard.py
     ├── test_config.py
@@ -55,7 +57,7 @@ plume/
 
 Paths via `platformdirs.user_config_dir("plume")`. `CONFIG_DIR` in `config.py` is monkeypatchable in tests.
 
-## Phase 3 flow (select → shortcut → done)
+## App flow (select → shortcut → done)
 
 1. User selects text in any app
 2. User presses `Ctrl+Alt+F`
@@ -66,6 +68,21 @@ Paths via `platformdirs.user_config_dir("plume")`. `CONFIG_DIR` in `config.py` i
 7. `notifier.py` shows a desktop notification
 
 The GNOME custom shortcut from Phase 2 should be **removed** — pynput handles the hotkey directly inside the running app.
+
+## First-run wizard (wizard.py)
+
+Triggered automatically when `~/.config/plume/config.toml` does not exist. Shows a 3-step tkinter `Toplevel`: Welcome → form (API URL, key, model) → Done. Calls `save_config()` on completion. If the user cancels, the app exits cleanly. The root `Tk` window is withdrawn during the wizard and shown only after it completes.
+
+## Settings dialog (settings.py)
+
+Opened by **right-clicking the floating widget**. Also accessible from the tray menu (when tray is available). A tkinter `Toplevel` with fields for API URL, API key, model, and hotkey. On save: writes config to disk and updates the live `PlumeApp` state. If the hotkey changed, the `GlobalHotkeyListener` is stopped and restarted immediately — no app restart needed.
+
+## Widget interaction (widget.py)
+
+- **Left-click**: trigger fix
+- **Right-click**: open settings dialog
+- **Drag**: reposition the widget anywhere on screen
+- States: idle (indigo) → busy (pulsing ring) → success (emerald, 1.5 s) → idle
 
 ## Running the app
 
@@ -98,17 +115,18 @@ To start automatically on login: add `plume run` to GNOME Startup Applications.
 - `ConfigError` — missing config
 - `FixerError` — LLM timeout / HTTP errors
 - `ClipboardError` — xclip missing or clipboard empty
-- Phase 3: errors shown as desktop notifications via notify-send
+- Runtime errors shown as desktop notifications via notify-send
 
 ## Known gotchas
 
 - PyQt6 blocked by glibc 2.31 on Ubuntu 20.04 — see GUI branch note above
 - tkinter must be available: `sudo apt-get install python3-tk` if missing
-- pystray tray icon on GNOME requires AppIndicator extension + PyGObject; PyGObject won't build on Python 3.14 / Ubuntu 20.04 — tray is silently disabled, app works without it
+- pystray tray icon on GNOME requires AppIndicator extension + PyGObject; PyGObject won't build on Python 3.14 / Ubuntu 20.04 — tray is silently disabled, settings are accessible via right-click on the widget instead
 - Widget corners are clipped to a true circle via the X11 Shape Extension (python-xlib, already installed via pynput)
 - xclip required: `sudo apt-get install xclip`
 - pynput GlobalHotKeys runs in a thread — UI updates must go through `root.after()`
 - `asyncio_mode = "auto"` in pytest — no `@pytest.mark.asyncio` needed
+- Root `Tk` window is withdrawn at startup and shown only after FloatingWidget is fully configured — avoids the "tk" title bar flash
 
 ## Running the checks
 
@@ -125,14 +143,12 @@ uv run mypy plume
 **Phase 1 — CLI only.** ✅ Done.
 **Phase 2 — Clipboard mode.** ✅ Done.
 **Phase 3 — tkinter widget + tray + hotkey listener.** ✅ Done.
-- Eliminates manual Ctrl+C / Ctrl+V
-- ⚠️ Uses tkinter instead of PyQt6 (Ubuntu 20.04 constraint)
-
-**Phase 4 — Settings dialog + first-run wizard.**
+**Phase 4 — Settings dialog + first-run wizard.** ✅ Done.
+**Phase 5 — Cross-platform support (Linux + Windows).** Planned.
 
 ## Hard constraints
 
-- OS target: Ubuntu. X11 uses `pynput` + `pyperclip`.
+- OS target: Ubuntu (Linux + Windows in Phase 5). X11 uses `pynput` + `pyperclip`.
 - GUI: tkinter for now; PyQt6 on Ubuntu 22.04+
 - No telemetry, no cloud sync, no analytics.
 - Logs: `~/.cache/plume/plume.log`, `RotatingFileHandler` 5 MB cap.

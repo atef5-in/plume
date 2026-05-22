@@ -24,11 +24,9 @@ uv sync
 
 ## Configuration initiale
 
-```bash
-uv run plume init
-```
+Au premier lancement, un **assistant de configuration** s'ouvre automatiquement et guide pas à pas : URL de l'API, clé, modèle. La clé est stockée dans `~/.config/plume/.env`, jamais dans le TOML.
 
-Répond aux questions interactives (URL de l'API, clé, modèle). Effectue un appel de test avant de sauvegarder. La clé est stockée dans `~/.config/plume/.env`, jamais dans le TOML.
+Pour modifier la configuration ultérieurement : **clic droit sur le bouton flottant** → fenêtre Paramètres. Les changements (y compris le raccourci clavier) prennent effet immédiatement sans redémarrage.
 
 ## Utilisation
 
@@ -95,7 +93,8 @@ echo "Salut Thomas, ca marche pas encore." | uv run plume fix --stdin
 - [x] **Phase 1** — CLI : `plume init` + `plume fix`
 - [x] **Phase 2** — Mode presse-papiers : `plume fix` sans argument
 - [x] **Phase 3** — Widget flottant + hotkey global + notifications
-- [ ] **Phase 4** — Dialogue paramètres + assistant première utilisation
+- [x] **Phase 4** — Dialogue paramètres + assistant première utilisation
+- [ ] **Phase 5** — Support multiplateforme (Linux + Windows)
 
 ## Tests
 

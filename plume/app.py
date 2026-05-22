@@ -6,7 +6,7 @@ import time
 import tkinter as tk
 
 from plume.capture import capture_selection
-from plume.config import ConfigError, load_config
+from plume.config import CONFIG_DIR, Config, ConfigError, load_config
 from plume.fixer import FixerError, fix_text
 from plume.hotkey import GlobalHotkeyListener
 from plume.notifier import notify
@@ -19,18 +19,33 @@ HOTKEY_SETTLE = 0.12  # seconds — let hotkey keys release before Ctrl+C
 
 class PlumeApp:
     def __init__(self) -> None:
-        try:
-            self._cfg = load_config()
-        except ConfigError as exc:
-            notify("Plume — Erreur de configuration", str(exc), "critical")
-            raise
-
         self._root = tk.Tk()
-        self._widget = FloatingWidget(self._root, on_click=self.trigger_fix)
+        self._root.withdraw()  # hide until fully configured
+
+        if not (CONFIG_DIR / "config.toml").exists():
+            cfg = self._run_wizard()
+            if cfg is None:
+                self._root.destroy()
+                raise SystemExit(0)
+            self._cfg = cfg
+        else:
+            try:
+                self._cfg = load_config()
+            except ConfigError as exc:
+                notify("Plume — Erreur de configuration", str(exc), "critical")
+                raise
+
+        self._widget = FloatingWidget(
+            self._root,
+            on_click=self.trigger_fix,
+            on_right_click=self._open_settings,
+        )
+        self._root.deiconify()
         self._tray = TrayIcon(
             on_fix=self.trigger_fix,
             on_toggle=self._toggle_widget,
             on_quit=self.quit,
+            on_settings=self._open_settings,
         )
         self._hotkey = GlobalHotkeyListener(
             hotkey=self._cfg.hotkey,
@@ -53,6 +68,22 @@ class PlumeApp:
             self._root.after(0, self._root.deiconify)
         else:
             self._root.after(0, self._root.withdraw)
+
+    def _run_wizard(self) -> Config | None:
+        from plume.wizard import run_wizard
+        return run_wizard(self._root)
+
+    def _open_settings(self) -> None:
+        from plume.settings import SettingsDialog
+        self._root.after(0, lambda: SettingsDialog(self._root, self._cfg, self._apply_settings))
+
+    def _apply_settings(self, cfg: Config) -> None:
+        old_hotkey = self._cfg.hotkey
+        self._cfg = cfg
+        if cfg.hotkey != old_hotkey:
+            self._hotkey.stop()
+            self._hotkey = GlobalHotkeyListener(hotkey=cfg.hotkey, callback=self.trigger_fix)
+            self._hotkey.start()
 
     def trigger_fix(self) -> None:
         if self._busy:

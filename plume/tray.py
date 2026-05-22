@@ -27,10 +27,12 @@ class TrayIcon:
         on_fix: Callable[[], None],
         on_toggle: Callable[[], None],
         on_quit: Callable[[], None],
+        on_settings: Callable[[], None],
     ) -> None:
         self._on_fix = on_fix
         self._on_toggle = on_toggle
         self._on_quit = on_quit
+        self._on_settings = on_settings
         self._icon: _pystray.Icon | None = None
 
     def start(self) -> None:
@@ -42,6 +44,7 @@ class TrayIcon:
                 pystray.MenuItem(
                     "Afficher / Masquer le widget", lambda _i, _it: self._on_toggle()
                 ),
+                pystray.MenuItem("Paramètres", lambda _i, _it: self._on_settings()),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Quitter", lambda _i, _it: self._on_quit()),
             )
