@@ -29,6 +29,7 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "pytest-httpx",
+    "types-pyperclip>=1.11.0.20260508",
 ]
 
 [tool.ruff]

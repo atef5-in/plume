@@ -7,9 +7,35 @@ from plume.prompts import SYSTEM_PROMPT
 
 TIMEOUT = 30.0
 
+_PREAMBLE_MARKERS = (
+    "voici le texte corrig",
+    "texte corrig",
+    "voici la correction",
+    "voici le résultat",
+    "voici le resultat",
+)
+
 
 class FixerError(Exception):
     pass
+
+
+def _strip_preamble(text: str) -> str:
+    first_line = text.split("\n")[0].rstrip(" :").lower()
+    if any(first_line.startswith(marker) for marker in _PREAMBLE_MARKERS):
+        rest = text.split("\n", 1)[1].lstrip("\n")
+        return rest if rest else text
+    return text
+
+
+def _strip_surrounding_quotes(text: str) -> str:
+    if len(text) < 2:
+        return text
+    pairs = [('"', '"'), ("'", "'"), ("“", "”")]
+    for open_q, close_q in pairs:
+        if text[0] == open_q and text[-1] == close_q:
+            return text[1:-1]
+    return text
 
 
 async def fix_text(text: str, cfg: Config) -> str:
@@ -50,13 +76,7 @@ async def fix_text(text: str, cfg: Config) -> str:
     assert isinstance(content, str)
 
     content = content.strip()
-
-    # Strip a single pair of surrounding straight or curly quotes if the model adds them
-    if len(content) >= 2 and (
-        (content[0] == '"' and content[-1] == '"')
-        or (content[0] == "'" and content[-1] == "'")
-        or (content[0] == "“" and content[-1] == "”")
-    ):
-        content = content[1:-1]
+    content = _strip_surrounding_quotes(content)
+    content = _strip_preamble(content)
 
     return content

@@ -5,6 +5,7 @@ import asyncio
 import getpass
 import sys
 
+from plume.clipboard import ClipboardError, get_clipboard, set_clipboard
 from plume.config import CONFIG_DIR, Config, ConfigError, load_config, save_config
 from plume.fixer import FixerError, fix_text
 
@@ -51,20 +52,35 @@ def cmd_fix(args: argparse.Namespace) -> None:
         print(f"Erreur de configuration : {exc}", file=sys.stderr)
         sys.exit(1)
 
+    clipboard_mode = not args.stdin and not args.text
+
     if args.stdin:
         text = sys.stdin.read()
     elif args.text:
         text = args.text
     else:
-        print("Erreur : fournissez du texte ou --stdin.", file=sys.stderr)
-        sys.exit(1)
+        try:
+            text = get_clipboard()
+        except ClipboardError as exc:
+            print(f"Erreur presse-papiers : {exc}", file=sys.stderr)
+            sys.exit(1)
 
     try:
         result = asyncio.run(fix_text(text, cfg))
-        print(result)
     except FixerError as exc:
         print(f"Erreur : {exc}", file=sys.stderr)
         sys.exit(1)
+
+    if clipboard_mode:
+        try:
+            set_clipboard(result)
+        except ClipboardError as exc:
+            print(f"Erreur presse-papiers : {exc}", file=sys.stderr)
+            sys.exit(1)
+        char_count = len(result)
+        print(f"✓ Texte corrigé ({char_count} caractères) — prêt à coller.")
+    else:
+        print(result)
 
 
 def main() -> None:
