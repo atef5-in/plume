@@ -47,12 +47,29 @@ class TrayIcon:
             )
             self._icon = pystray.Icon("plume", _make_icon(), "Plume", menu)
             thread = threading.Thread(
-                target=self._icon.run, daemon=True, name="plume-tray"
+                target=self._run_silently, daemon=True, name="plume-tray"
             )
             thread.start()
         except Exception:
             # Tray is optional — app works fine without it
             pass
+
+    def _run_silently(self) -> None:
+        import os
+
+        # pystray prints GNOME docking errors at the C/X11 level — suppress fd 2
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        saved = os.dup(2)
+        os.dup2(devnull, 2)
+        try:
+            if self._icon is not None:
+                self._icon.run()
+        except Exception:
+            pass
+        finally:
+            os.dup2(saved, 2)
+            os.close(saved)
+            os.close(devnull)
 
     def stop(self) -> None:
         if self._icon is not None:
