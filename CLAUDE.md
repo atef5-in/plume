@@ -104,7 +104,8 @@ To start automatically on login: add `plume run` to GNOME Startup Applications.
 
 - PyQt6 blocked by glibc 2.31 on Ubuntu 20.04 — see GUI branch note above
 - tkinter must be available: `sudo apt-get install python3-tk` if missing
-- pystray tray icon on GNOME may require AppIndicator extension — app works without it
+- pystray tray icon on GNOME requires AppIndicator extension + PyGObject; PyGObject won't build on Python 3.14 / Ubuntu 20.04 — tray is silently disabled, app works without it
+- Widget corners are clipped to a true circle via the X11 Shape Extension (python-xlib, already installed via pynput)
 - xclip required: `sudo apt-get install xclip`
 - pynput GlobalHotKeys runs in a thread — UI updates must go through `root.after()`
 - `asyncio_mode = "auto"` in pytest — no `@pytest.mark.asyncio` needed
@@ -123,7 +124,7 @@ uv run mypy plume
 
 **Phase 1 — CLI only.** ✅ Done.
 **Phase 2 — Clipboard mode.** ✅ Done.
-**Phase 3 — tkinter widget + tray + hotkey listener.** 🔄 In progress.
+**Phase 3 — tkinter widget + tray + hotkey listener.** ✅ Done.
 - Eliminates manual Ctrl+C / Ctrl+V
 - ⚠️ Uses tkinter instead of PyQt6 (Ubuntu 20.04 constraint)
 
