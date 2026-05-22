@@ -3,7 +3,7 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
-SIZE = 68
+SIZE = 52
 BG = "#0d0d0d"
 ALPHA_NORMAL = 0.82
 ALPHA_HOVER = 1.0
