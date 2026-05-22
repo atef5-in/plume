@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tomllib
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -18,11 +19,19 @@ class ConfigError(Exception):
     pass
 
 
+class Mode(StrEnum):
+    FIX_FRENCH = "fix_french"
+    FIX_ENGLISH = "fix_english"
+    TRANSLATE_FR_EN = "translate_fr_en"
+    TRANSLATE_EN_FR = "translate_en_fr"
+
+
 class Config(BaseModel):
     api_base_url: str
     api_key: SecretStr
     model: str
     hotkey: str = _DEFAULT_HOTKEY
+    mode: Mode = Mode.FIX_FRENCH
     widget_position: tuple[int, int] | None = None
 
 
@@ -66,6 +75,7 @@ def save_config(cfg: Config) -> None:
         "api_base_url": cfg.api_base_url,
         "model": cfg.model,
         "hotkey": cfg.hotkey,
+        "mode": cfg.mode.value,
     }
     if cfg.widget_position is not None:
         data["widget_position"] = list(cfg.widget_position)

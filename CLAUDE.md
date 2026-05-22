@@ -1,8 +1,8 @@
-# Plume — French Text Fixer
+# Plume — French/English Text Fixer & Translator
 
 ## What this is
 
-A desktop tool for Ubuntu that fixes French spelling, accents, apostrophes, and grammar in any application via a global hotkey and an always-on-top floating widget. Built for a developer working on a QWERTY keyboard who writes professional French (emails, tickets, docs) without accent characters.
+A desktop tool for Ubuntu that fixes and translates text in any application via a global hotkey and an always-on-top floating widget. Supports 4 modes: fix French, fix English, translate FR→EN, translate EN→FR. Built for a developer on a QWERTY keyboard writing professional French without accent characters.
 
 **The contract is strict: fix only spelling/accents/punctuation/grammar; never change meaning, never add or remove information.**
 
@@ -10,7 +10,7 @@ A desktop tool for Ubuntu that fixes French spelling, accents, apostrophes, and 
 
 The original plan specifies PyQt6. This machine runs Ubuntu 20.04 (glibc 2.31) which is below PyQt6's minimum (glibc 2.34). Phases 3–4 are therefore implemented with **tkinter + pystray** instead. This is a temporary deviation — when the machine is upgraded to Ubuntu 22.04/24.04, the GUI should be rewritten with PyQt6. The CLI (Phases 1–2) is unaffected.
 
-## Current state — Phase 4 complete
+## Current state — Phase 4b complete
 
 ```
 plume/
@@ -23,13 +23,13 @@ plume/
 │   ├── app.py          # PlumeApp — bootstrap, wires everything
 │   ├── capture.py      # capture_selection() — simulates Ctrl+C, reads clipboard
 │   ├── clipboard.py    # get_clipboard() / set_clipboard() via pyperclip
-│   ├── config.py       # Config (Pydantic v2) + load_config / save_config
-│   ├── fixer.py        # async fix_text(text, cfg) -> str
+│   ├── config.py       # Config (Pydantic v2) + Mode enum + load_config / save_config
+│   ├── fixer.py        # async fix_text(text, cfg, mode) -> str
 │   ├── hotkey.py       # GlobalHotkeyListener (pynput)
 │   ├── notifier.py     # notify() via notify-send
-│   ├── prompts.py      # SYSTEM_PROMPT constant
+│   ├── prompts.py      # get_prompt(mode) — 4 system prompts
 │   ├── replace.py      # replace_selection() — sets clipboard, simulates Ctrl+V
-│   ├── settings.py     # SettingsDialog (tkinter Toplevel, opened via right-click)
+│   ├── settings.py     # SettingsDialog (tkinter Toplevel, opened via right-click menu)
 │   ├── tray.py         # TrayIcon (pystray, optional — fails gracefully on GNOME)
 │   ├── widget.py       # FloatingWidget (tkinter, frameless, always-on-top)
 │   └── wizard.py       # FirstRunWizard (tkinter Toplevel, shown on first launch)
@@ -52,10 +52,21 @@ plume/
 
 | File | Contents |
 |---|---|
-| `~/.config/plume/config.toml` | `api_base_url`, `model`, `hotkey`, `widget_position` |
+| `~/.config/plume/config.toml` | `api_base_url`, `model`, `hotkey`, `mode`, `widget_position` |
 | `~/.config/plume/.env` | `PLUME_API_KEY` only — never written to TOML |
 
 Paths via `platformdirs.user_config_dir("plume")`. `CONFIG_DIR` in `config.py` is monkeypatchable in tests.
+
+## The 4 modes (config.py — Mode enum)
+
+| Mode value | Label | Color | Action |
+|---|---|---|---|
+| `fix_french` | FR | Indigo | Fix French spelling/accents/grammar |
+| `fix_english` | EN | Blue | Fix English spelling/grammar |
+| `translate_fr_en` | F›E | Amber | Translate French → English |
+| `translate_en_fr` | E›F | Purple | Translate English → French |
+
+Right-clicking the widget opens a popup menu to switch mode. The chosen mode is saved to `config.toml` and persisted across restarts.
 
 ## App flow (select → shortcut → done)
 
@@ -63,11 +74,18 @@ Paths via `platformdirs.user_config_dir("plume")`. `CONFIG_DIR` in `config.py` i
 2. User presses `Ctrl+Alt+F`
 3. pynput intercepts the hotkey globally
 4. `capture.py` simulates Ctrl+C and reads the clipboard
-5. `fixer.py` sends text to LLM
-6. `replace.py` writes fixed text to clipboard and simulates Ctrl+V
-7. `notifier.py` shows a desktop notification
+5. `fixer.py` picks the prompt for the active mode and sends text to LLM
+6. `replace.py` writes the result to clipboard and simulates Ctrl+V
+7. `notifier.py` shows a mode-specific desktop notification
 
 The GNOME custom shortcut from Phase 2 should be **removed** — pynput handles the hotkey directly inside the running app.
+
+## Response parsing (fixer.py)
+
+1. Strip whitespace
+2. Strip surrounding quotes (`"..."`, `'...'`, `"..."`)
+3. Strip preamble lines small models add (see `_strip_preamble()`)
+4. Strip markdown formatting the model may inject (`**bold**`, `*italic*`, `__x__`, `_x_`)
 
 ## First-run wizard (wizard.py)
 
@@ -75,14 +93,15 @@ Triggered automatically when `~/.config/plume/config.toml` does not exist. Shows
 
 ## Settings dialog (settings.py)
 
-Opened by **right-clicking the floating widget**. Also accessible from the tray menu (when tray is available). A tkinter `Toplevel` with fields for API URL, API key, model, and hotkey. On save: writes config to disk and updates the live `PlumeApp` state. If the hotkey changed, the `GlobalHotkeyListener` is stopped and restarted immediately — no app restart needed.
+Opened from the right-click popup menu on the widget (or tray menu when available). A tkinter `Toplevel` with fields for API URL, API key, model, and hotkey. On save: writes config to disk and updates the live `PlumeApp` state. If the hotkey changed, the `GlobalHotkeyListener` is stopped and restarted immediately — no app restart needed.
 
 ## Widget interaction (widget.py)
 
-- **Left-click**: trigger fix
-- **Right-click**: open settings dialog
-- **Drag**: reposition the widget anywhere on screen
-- States: idle (indigo) → busy (pulsing ring) → success (emerald, 1.5 s) → idle
+- Left-click: trigger fix/translate using the active mode
+- Right-click: open mode popup menu (4 modes + Settings)
+- Drag: reposition the widget anywhere on screen
+- Widget label and ring color reflect the active mode
+- States: idle → busy (pulsing ring) → success (emerald, 1.5 s) → idle
 
 ## Running the app
 
@@ -94,12 +113,6 @@ uv run plume fix "text" # Phase 1 positional (still works)
 ```
 
 To start automatically on login: add `plume run` to GNOME Startup Applications.
-
-## Response parsing (fixer.py)
-
-1. Strip whitespace
-2. Strip surrounding quotes (`"..."`, `'...'`, `"..."`)
-3. Strip preamble lines small models add (see `_strip_preamble()`)
 
 ## Code style
 
@@ -127,6 +140,7 @@ To start automatically on login: add `plume run` to GNOME Startup Applications.
 - pynput GlobalHotKeys runs in a thread — UI updates must go through `root.after()`
 - `asyncio_mode = "auto"` in pytest — no `@pytest.mark.asyncio` needed
 - Root `Tk` window is withdrawn at startup and shown only after FloatingWidget is fully configured — avoids the "tk" title bar flash
+- Some LLM models inject markdown formatting (`**bold**`) into their output — `_strip_markdown()` in `fixer.py` removes it
 
 ## Running the checks
 
@@ -144,6 +158,7 @@ uv run mypy plume
 **Phase 2 — Clipboard mode.** ✅ Done.
 **Phase 3 — tkinter widget + tray + hotkey listener.** ✅ Done.
 **Phase 4 — Settings dialog + first-run wizard.** ✅ Done.
+**Phase 4b — 4 modes (fix FR/EN, translate FR↔EN).** ✅ Done.
 **Phase 5 — Cross-platform support (Linux + Windows).** Planned.
 
 ## Hard constraints

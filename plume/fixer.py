@@ -2,22 +2,42 @@ from __future__ import annotations
 
 import httpx
 
-from plume.config import Config
-from plume.prompts import SYSTEM_PROMPT
+from plume.config import Config, Mode
+from plume.prompts import get_prompt
 
 TIMEOUT = 30.0
 
 _PREAMBLE_MARKERS = (
+    # French fix preambles
     "voici le texte corrig",
     "texte corrig",
     "voici la correction",
     "voici le résultat",
     "voici le resultat",
+    # English fix preambles
+    "here is the corrected",
+    "here's the corrected",
+    "corrected text:",
+    # Translation preambles
+    "here is the translation",
+    "here's the translation",
+    "voici la traduction",
+    "traduction :",
+    "translation:",
 )
 
 
 class FixerError(Exception):
     pass
+
+
+def _strip_markdown(text: str) -> str:
+    import re
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)  # **bold**
+    text = re.sub(r"\*(.+?)\*", r"\1", text)       # *italic*
+    text = re.sub(r"__(.+?)__", r"\1", text)       # __bold__
+    text = re.sub(r"_(.+?)_", r"\1", text)         # _italic_
+    return text
 
 
 def _strip_preamble(text: str) -> str:
@@ -38,12 +58,12 @@ def _strip_surrounding_quotes(text: str) -> str:
     return text
 
 
-async def fix_text(text: str, cfg: Config) -> str:
+async def fix_text(text: str, cfg: Config, mode: Mode = Mode.FIX_FRENCH) -> str:
     url = cfg.api_base_url.rstrip("/") + "/chat/completions"
     payload = {
         "model": cfg.model,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": get_prompt(mode)},
             {"role": "user", "content": text},
         ],
         "temperature": 0.1,
@@ -78,5 +98,6 @@ async def fix_text(text: str, cfg: Config) -> str:
     content = content.strip()
     content = _strip_surrounding_quotes(content)
     content = _strip_preamble(content)
+    content = _strip_markdown(content)
 
     return content

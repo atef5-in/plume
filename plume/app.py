@@ -6,7 +6,7 @@ import time
 import tkinter as tk
 
 from plume.capture import capture_selection
-from plume.config import CONFIG_DIR, Config, ConfigError, load_config
+from plume.config import CONFIG_DIR, Config, ConfigError, Mode, load_config, save_config
 from plume.fixer import FixerError, fix_text
 from plume.hotkey import GlobalHotkeyListener
 from plume.notifier import notify
@@ -15,6 +15,20 @@ from plume.tray import TrayIcon
 from plume.widget import FloatingWidget
 
 HOTKEY_SETTLE = 0.12  # seconds — let hotkey keys release before Ctrl+C
+
+_MODE_MENU_LABELS: dict[Mode, str] = {
+    Mode.FIX_FRENCH:      "Corriger le français",
+    Mode.FIX_ENGLISH:     "Corriger l'anglais",
+    Mode.TRANSLATE_FR_EN: "Traduire FR → EN",
+    Mode.TRANSLATE_EN_FR: "Traduire EN → FR",
+}
+
+_MODE_DONE_MESSAGES: dict[Mode, str] = {
+    Mode.FIX_FRENCH:      "✓ Français corrigé",
+    Mode.FIX_ENGLISH:     "✓ English fixed",
+    Mode.TRANSLATE_FR_EN: "✓ Translated to English",
+    Mode.TRANSLATE_EN_FR: "✓ Texte traduit en français",
+}
 
 
 class PlumeApp:
@@ -38,9 +52,11 @@ class PlumeApp:
         self._widget = FloatingWidget(
             self._root,
             on_click=self.trigger_fix,
-            on_right_click=self._open_settings,
+            on_right_click=self._show_mode_menu,
         )
+        self._widget.update_mode(self._cfg.mode)
         self._root.deiconify()
+
         self._tray = TrayIcon(
             on_fix=self.trigger_fix,
             on_toggle=self._toggle_widget,
@@ -80,10 +96,31 @@ class PlumeApp:
     def _apply_settings(self, cfg: Config) -> None:
         old_hotkey = self._cfg.hotkey
         self._cfg = cfg
+        self._widget.update_mode(cfg.mode)
         if cfg.hotkey != old_hotkey:
             self._hotkey.stop()
             self._hotkey = GlobalHotkeyListener(hotkey=cfg.hotkey, callback=self.trigger_fix)
             self._hotkey.start()
+
+    def _show_mode_menu(self, x: int, y: int) -> None:
+        menu = tk.Menu(self._root, tearoff=0)
+        for mode, label in _MODE_MENU_LABELS.items():
+            prefix = "✓ " if mode == self._cfg.mode else "   "
+            menu.add_command(
+                label=f"{prefix}{label}",
+                command=lambda m=mode: self._set_mode(m),  # type: ignore[misc]
+            )
+        menu.add_separator()
+        menu.add_command(label="Paramètres", command=self._open_settings)
+        try:
+            menu.tk_popup(x, y)
+        finally:
+            menu.grab_release()
+
+    def _set_mode(self, mode: Mode) -> None:
+        self._cfg = self._cfg.model_copy(update={"mode": mode})
+        save_config(self._cfg)
+        self._root.after(0, lambda: self._widget.update_mode(mode))
 
     def trigger_fix(self) -> None:
         if self._busy:
@@ -93,6 +130,7 @@ class PlumeApp:
         thread.start()
 
     def _do_fix(self) -> None:
+        mode = self._cfg.mode
         try:
             self._root.after(0, self._widget.set_busy)
 
@@ -104,10 +142,11 @@ class PlumeApp:
                 self._root.after(0, self._widget.set_idle)
                 return
 
-            result = asyncio.run(fix_text(text, self._cfg))
+            result = asyncio.run(fix_text(text, self._cfg, mode))
             replace_selection(result)
 
-            notify("Plume", f"✓ Texte corrigé ({len(result)} caractères)")
+            msg = _MODE_DONE_MESSAGES[mode]
+            notify("Plume", f"{msg} ({len(result)} caractères)")
             self._root.after(0, self._widget.set_success)
 
         except FixerError as exc:

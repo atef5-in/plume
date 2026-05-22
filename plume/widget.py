@@ -3,17 +3,30 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
+from plume.config import Mode
+
 SIZE = 52
 BG = "#0d0d0d"
 ALPHA_NORMAL = 0.82
 ALPHA_HOVER = 1.0
 
-# Idle: deep indigo. Ring: slightly lighter indigo drawn behind = clean halo.
-_RING_IDLE = "#6366f1"
-_FILL_IDLE = "#312e81"
-_FILL_HOVER = "#3730a3"
+# Idle colors per mode: (ring, fill, fill-hover)
+_MODE_COLORS: dict[Mode, tuple[str, str, str]] = {
+    Mode.FIX_FRENCH:      ("#6366f1", "#312e81", "#3730a3"),  # indigo
+    Mode.FIX_ENGLISH:     ("#2563eb", "#1e3a8a", "#1e40af"),  # blue
+    Mode.TRANSLATE_FR_EN: ("#d97706", "#78350f", "#92400e"),  # amber
+    Mode.TRANSLATE_EN_FR: ("#7c3aed", "#3b0764", "#4c1d95"),  # purple
+}
 
-# Busy pulse: dark fill, animated ring cycling indigo → white → indigo
+# Short label displayed on the circle per mode
+_MODE_LABELS: dict[Mode, str] = {
+    Mode.FIX_FRENCH:      "FR",
+    Mode.FIX_ENGLISH:     "EN",
+    Mode.TRANSLATE_FR_EN: "F›E",
+    Mode.TRANSLATE_EN_FR: "E›F",
+}
+
+# Busy pulse: dark fill, animated ring
 _FILL_BUSY = "#1e1b4b"
 _PULSE_STEPS = ["#6366f1", "#818cf8", "#a5b4fc", "#c7d2fe", "#e0e7ff",
                 "#ffffff", "#e0e7ff", "#c7d2fe", "#a5b4fc", "#818cf8"]
@@ -31,7 +44,7 @@ class FloatingWidget:
         self,
         root: tk.Tk,
         on_click: Callable[[], None],
-        on_right_click: Callable[[], None] | None = None,
+        on_right_click: Callable[[int, int], None] | None = None,
     ) -> None:
         self._root = root
         self._on_click = on_click
@@ -42,6 +55,7 @@ class FloatingWidget:
         self._hovered = False
         self._pulse_job: str | None = None
         self._pulse_step = 0
+        self._mode = Mode.FIX_FRENCH
 
         self._setup_window()
         self._build_canvas()
@@ -76,11 +90,10 @@ class FloatingWidget:
                                         fill=fill, outline="", tags=tag)
 
     def _ring(self, pad: int, color: str, tag: str) -> int:
-        # A ring = larger filled oval (ring color) behind a smaller filled oval (fill color)
         return self._canvas.create_oval(pad, pad, SIZE - pad, SIZE - pad,
                                         fill="", outline=color, width=_RING_W, tags=tag)
 
-    def _text(self, content: str, tag: str, size: int = 24) -> int:
+    def _text(self, content: str, tag: str, size: int = 14) -> int:
         return self._canvas.create_text(
             SIZE // 2, SIZE // 2,
             text=content, fill="#ffffff",
@@ -91,14 +104,19 @@ class FloatingWidget:
     def _clear(self) -> None:
         self._canvas.delete("all")
 
+    def _ring_color(self) -> str:
+        return _MODE_COLORS[self._mode][0]
+
+    def _fill_color(self) -> str:
+        return _MODE_COLORS[self._mode][2 if self._hovered else 1]
+
     # ── states ────────────────────────────────────────────────────────────────
 
     def _draw_idle(self) -> None:
         self._clear()
-        fill = _FILL_HOVER if self._hovered else _FILL_IDLE
-        self._oval(_PAD, _RING_IDLE, "ring_bg")
-        self._oval(_PAD + _RING_W, fill, "fill")
-        self._text("P", "label")
+        self._oval(_PAD, self._ring_color(), "ring_bg")
+        self._oval(_PAD + _RING_W, self._fill_color(), "fill")
+        self._text(_MODE_LABELS[self._mode], "label")
 
     def set_idle(self) -> None:
         self._stop_pulse()
@@ -109,7 +127,7 @@ class FloatingWidget:
         self._clear()
         self._oval(_PAD, _PULSE_STEPS[0], "ring_bg")
         self._oval(_PAD + _RING_W, _FILL_BUSY, "fill")
-        self._text("…", "label", size=20)
+        self._text("…", "label", size=18)
         self._pulse_step = 0
         self._tick_pulse()
 
@@ -120,6 +138,10 @@ class FloatingWidget:
         self._oval(_PAD + _RING_W, _FILL_SUCCESS, "fill")
         self._text("✓", "label")
         self._root.after(1500, self.set_idle)
+
+    def update_mode(self, mode: Mode) -> None:
+        self._mode = mode
+        self._draw_idle()
 
     # ── pulse ─────────────────────────────────────────────────────────────────
 
@@ -139,12 +161,12 @@ class FloatingWidget:
     def _on_enter(self, _e: tk.Event[tk.Canvas]) -> None:
         self._hovered = True
         self._root.attributes("-alpha", ALPHA_HOVER)
-        self._canvas.itemconfig("fill", fill=_FILL_HOVER)
+        self._canvas.itemconfig("fill", fill=_MODE_COLORS[self._mode][2])
 
     def _on_leave(self, _e: tk.Event[tk.Canvas]) -> None:
         self._hovered = False
         self._root.attributes("-alpha", ALPHA_NORMAL)
-        self._canvas.itemconfig("fill", fill=_FILL_IDLE)
+        self._canvas.itemconfig("fill", fill=_MODE_COLORS[self._mode][1])
 
     def _on_press(self, event: tk.Event[tk.Canvas]) -> None:
         self._drag_start_x = event.x_root - self._root.winfo_x()
@@ -161,9 +183,9 @@ class FloatingWidget:
         if not self._dragging:
             self._on_click()
 
-    def _on_right_release(self, _e: tk.Event[tk.Canvas]) -> None:
+    def _on_right_release(self, e: tk.Event[tk.Canvas]) -> None:
         if self._on_right_click is not None:
-            self._on_right_click()
+            self._on_right_click(e.x_root, e.y_root)
 
     def _apply_circle_mask(self) -> None:
         try:
