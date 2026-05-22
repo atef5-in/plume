@@ -83,11 +83,22 @@ def cmd_fix(args: argparse.Namespace) -> None:
         print(result)
 
 
+def cmd_run(_args: argparse.Namespace) -> None:
+    from plume.app import PlumeApp
+
+    try:
+        PlumeApp().run()
+    except Exception as exc:
+        print(f"Erreur : {exc}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="plume", description="Correcteur de français")
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("init", help="Configuration interactive")
+    sub.add_parser("run", help="Lancer l'interface graphique (widget + raccourci global)")
 
     fix_parser = sub.add_parser("fix", help="Corriger du texte")
     fix_parser.add_argument("text", nargs="?", help="Texte à corriger")
@@ -98,6 +109,8 @@ def main() -> None:
         cmd_init(args)
     elif args.command == "fix":
         cmd_fix(args)
+    elif args.command == "run":
+        cmd_run(args)
 
 
 if __name__ == "__main__":
