@@ -411,6 +411,7 @@ dependencies = [
     { name = "httpx" },
     { name = "pillow" },
     { name = "platformdirs" },
+    { name = "plyer", marker = "sys_platform == 'win32'" },
     { name = "pydantic" },
     { name = "pynput" },
     { name = "pyperclip" },
@@ -440,6 +441,7 @@ requires-dist = [
     { name = "httpx" },
     { name = "pillow", specifier = ">=12.2.0" },
     { name = "platformdirs" },
+    { name = "plyer", marker = "sys_platform == 'win32'", specifier = ">=2.1.0" },
     { name = "pydantic", specifier = ">=2" },
     { name = "pynput" },
     { name = "pyperclip" },
@@ -459,6 +461,15 @@ dev = [
     { name = "ruff" },
     { name = "types-pynput", specifier = ">=1.8.1.20260518" },
     { name = "types-pyperclip", specifier = ">=1.11.0.20260508" },
+]
+
+[[package]]
+name = "plyer"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/20/85/f61425aa9be1f9108eec1c13861c1e11c9a04eb786eb4832a8f7188317df/plyer-2.1.0.tar.gz", hash = "sha256:65b7dfb7e11e07af37a8487eb2aa69524276ef70dad500b07228ce64736baa61", size = 121371, upload-time = "2022-11-12T13:36:48.978Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d3/89/a41c2643fc8eabeb84791acb9d0e4d139b1e4b53473cc4dae947b5fa33ed/plyer-2.1.0-py2.py3-none-any.whl", hash = "sha256:1b1772060df8b3045ed4f08231690ec8f7de30f5a004aa1724665a9074eed113", size = 142266, upload-time = "2022-11-12T13:36:47.181Z" },
 ]
 
 [[package]]

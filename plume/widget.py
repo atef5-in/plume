@@ -12,31 +12,41 @@ ALPHA_HOVER = 1.0
 
 # Idle colors per mode: (ring, fill, fill-hover)
 _MODE_COLORS: dict[Mode, tuple[str, str, str]] = {
-    Mode.FIX_FRENCH:      ("#6366f1", "#312e81", "#3730a3"),  # indigo
-    Mode.FIX_ENGLISH:     ("#2563eb", "#1e3a8a", "#1e40af"),  # blue
+    Mode.FIX_FRENCH: ("#6366f1", "#312e81", "#3730a3"),  # indigo
+    Mode.FIX_ENGLISH: ("#2563eb", "#1e3a8a", "#1e40af"),  # blue
     Mode.TRANSLATE_FR_EN: ("#d97706", "#78350f", "#92400e"),  # amber
     Mode.TRANSLATE_EN_FR: ("#7c3aed", "#3b0764", "#4c1d95"),  # purple
 }
 
 # Short label displayed on the circle per mode
 _MODE_LABELS: dict[Mode, str] = {
-    Mode.FIX_FRENCH:      "FR",
-    Mode.FIX_ENGLISH:     "EN",
+    Mode.FIX_FRENCH: "FR",
+    Mode.FIX_ENGLISH: "EN",
     Mode.TRANSLATE_FR_EN: "F›E",
     Mode.TRANSLATE_EN_FR: "E›F",
 }
 
 # Busy pulse: dark fill, animated ring
 _FILL_BUSY = "#1e1b4b"
-_PULSE_STEPS = ["#6366f1", "#818cf8", "#a5b4fc", "#c7d2fe", "#e0e7ff",
-                "#ffffff", "#e0e7ff", "#c7d2fe", "#a5b4fc", "#818cf8"]
+_PULSE_STEPS = [
+    "#6366f1",
+    "#818cf8",
+    "#a5b4fc",
+    "#c7d2fe",
+    "#e0e7ff",
+    "#ffffff",
+    "#e0e7ff",
+    "#c7d2fe",
+    "#a5b4fc",
+    "#818cf8",
+]
 _PULSE_MS = 90
 
 _FILL_SUCCESS = "#059669"  # emerald
 _RING_SUCCESS = "#34d399"
 
-_RING_W = 3   # ring thickness in pixels
-_PAD = 5      # gap between window edge and ring outer boundary
+_RING_W = 3  # ring thickness in pixels
+_PAD = 5  # gap between window edge and ring outer boundary
 
 
 class FloatingWidget:
@@ -72,9 +82,7 @@ class FloatingWidget:
         self._root.geometry(f"{SIZE}x{SIZE}+{sw - SIZE - 14}+{sh // 2 - SIZE // 2}")
 
     def _build_canvas(self) -> None:
-        self._canvas = tk.Canvas(
-            self._root, width=SIZE, height=SIZE, bg=BG, highlightthickness=0
-        )
+        self._canvas = tk.Canvas(self._root, width=SIZE, height=SIZE, bg=BG, highlightthickness=0)
         self._canvas.pack()
         self._canvas.bind("<ButtonPress-1>", self._on_press)
         self._canvas.bind("<B1-Motion>", self._on_drag)
@@ -86,17 +94,21 @@ class FloatingWidget:
     # ── helpers ───────────────────────────────────────────────────────────────
 
     def _oval(self, pad: int, fill: str, tag: str) -> int:
-        return self._canvas.create_oval(pad, pad, SIZE - pad, SIZE - pad,
-                                        fill=fill, outline="", tags=tag)
+        return self._canvas.create_oval(
+            pad, pad, SIZE - pad, SIZE - pad, fill=fill, outline="", tags=tag
+        )
 
     def _ring(self, pad: int, color: str, tag: str) -> int:
-        return self._canvas.create_oval(pad, pad, SIZE - pad, SIZE - pad,
-                                        fill="", outline=color, width=_RING_W, tags=tag)
+        return self._canvas.create_oval(
+            pad, pad, SIZE - pad, SIZE - pad, fill="", outline=color, width=_RING_W, tags=tag
+        )
 
     def _text(self, content: str, tag: str, size: int = 14) -> int:
         return self._canvas.create_text(
-            SIZE // 2, SIZE // 2,
-            text=content, fill="#ffffff",
+            SIZE // 2,
+            SIZE // 2,
+            text=content,
+            fill="#ffffff",
             font=("Arial", size, "bold"),
             tags=tag,
         )
@@ -188,6 +200,22 @@ class FloatingWidget:
             self._on_right_click(e.x_root, e.y_root)
 
     def _apply_circle_mask(self) -> None:
+        import sys
+
+        if sys.platform == "win32":
+            self._apply_circle_mask_windows()
+        else:
+            self._apply_circle_mask_x11()
+
+    def _apply_circle_mask_windows(self) -> None:
+        # Make the background color transparent so only the oval is visible.
+        # Corner pixels (which are BG-colored) disappear, giving a true circle.
+        try:
+            self._root.wm_attributes("-transparentcolor", BG)
+        except Exception:
+            pass
+
+    def _apply_circle_mask_x11(self) -> None:
         try:
             import Xlib.display
             from Xlib.ext import shape as xshape

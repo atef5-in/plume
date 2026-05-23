@@ -159,7 +159,7 @@ uv run mypy plume
 **Phase 3 — tkinter widget + tray + hotkey listener.** ✅ Done.
 **Phase 4 — Settings dialog + first-run wizard.** ✅ Done.
 **Phase 4b — 4 modes (fix FR/EN, translate FR↔EN).** ✅ Done.
-**Phase 5 — Cross-platform support (Linux + Windows).** Planned.
+**Phase 5 — Cross-platform support (Linux + Windows).** ✅ Done.
 
 ## Hard constraints
 
