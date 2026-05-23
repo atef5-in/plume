@@ -12,14 +12,14 @@ _ENTRY_BG = "#313244"
 _BTN_PRIMARY_BG = "#6366f1"
 _BTN_SECONDARY_BG = "#45475a"
 _WIDTH = 440
-_HEIGHT = 330
 
 
 def _center(win: tk.Toplevel) -> None:
     win.update_idletasks()
+    h = win.winfo_reqheight()
     x = (win.winfo_screenwidth() - _WIDTH) // 2
-    y = (win.winfo_screenheight() - _HEIGHT) // 2
-    win.geometry(f"{_WIDTH}x{_HEIGHT}+{x}+{y}")
+    y = (win.winfo_screenheight() - h) // 2
+    win.geometry(f"{_WIDTH}x{h}+{x}+{y}")
 
 
 class SettingsDialog:
@@ -34,13 +34,12 @@ class SettingsDialog:
 
         self._win = tk.Toplevel(root)
         self._win.title("Plume — Paramètres")
-        self._win.geometry(f"{_WIDTH}x{_HEIGHT}")
         self._win.resizable(False, False)
         self._win.configure(bg=_BG)
         self._win.grab_set()
-        _center(self._win)
 
         self._build()
+        _center(self._win)
 
     def _entry(self, parent: tk.Widget, show: str = "") -> tk.Entry:
         return tk.Entry(
