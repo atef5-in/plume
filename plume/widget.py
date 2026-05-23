@@ -214,6 +214,26 @@ class FloatingWidget:
             self._root.wm_attributes("-transparentcolor", BG)
         except Exception:
             pass
+        # Prevent the widget from stealing focus when clicked so that
+        # capture.py's Ctrl+C simulation still targets the source app.
+        self._apply_noactivate_windows()
+
+    def _apply_noactivate_windows(self) -> None:
+        try:
+            import ctypes
+
+            GWL_EXSTYLE = -20
+            WS_EX_NOACTIVATE = 0x08000000
+            windll = getattr(ctypes, "windll", None)
+            if windll is None:
+                return
+            hwnd = windll.user32.GetParent(self._root.winfo_id())
+            if not hwnd:
+                hwnd = self._root.winfo_id()
+            exstyle = windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, exstyle | WS_EX_NOACTIVATE)
+        except Exception:
+            pass
 
     def _apply_circle_mask_x11(self) -> None:
         try:
