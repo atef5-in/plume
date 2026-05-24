@@ -2,21 +2,24 @@
 
 ## What this is
 
-A desktop tool for Ubuntu that fixes and translates text in any application via a global hotkey and an always-on-top floating widget. Supports 4 modes: fix French, fix English, translate FR→EN, translate EN→FR. Built for a developer on a QWERTY keyboard writing professional French without accent characters.
+A desktop tool for Linux and Windows that fixes and translates text in any application via a global hotkey and an always-on-top floating widget. Supports 4 modes: fix French, fix English, translate FR→EN, translate EN→FR. Built for a developer on a QWERTY keyboard writing professional French without accent characters.
 
 **The contract is strict: fix only spelling/accents/punctuation/grammar; never change meaning, never add or remove information.**
 
 ## ⚠️ GUI branch note
 
-The original plan specifies PyQt6. This machine runs Ubuntu 20.04 (glibc 2.31) which is below PyQt6's minimum (glibc 2.34). Phases 3–4 are therefore implemented with **tkinter + pystray** instead. This is a temporary deviation — when the machine is upgraded to Ubuntu 22.04/24.04, the GUI should be rewritten with PyQt6. The CLI (Phases 1–2) is unaffected.
+The original plan specifies PyQt6. This machine runs Ubuntu 20.04 (glibc 2.31) which is below PyQt6's minimum (glibc 2.34). Phases 3–5 are therefore implemented with **tkinter + pystray** instead. This is a temporary deviation — when the machine is upgraded to Ubuntu 22.04/24.04, the GUI should be rewritten with PyQt6.
 
-## Current state — Phase 4b complete
+## Current state — Phase 5 complete
 
 ```
 plume/
 ├── pyproject.toml
-├── .env.example
-├── README.md
+├── plume.spec          # PyInstaller spec for Windows exe
+├── installer.iss       # Inno Setup script for PlumeSetup.exe
+├── .github/
+│   └── workflows/
+│       └── build-windows.yml  # CI: builds + publishes installer on v* tags
 ├── plume/
 │   ├── __init__.py
 │   ├── __main__.py     # CLI: init / fix / run subcommands
@@ -25,8 +28,9 @@ plume/
 │   ├── clipboard.py    # get_clipboard() / set_clipboard() via pyperclip
 │   ├── config.py       # Config (Pydantic v2) + Mode enum + load_config / save_config
 │   ├── fixer.py        # async fix_text(text, cfg, mode) -> str
+│   ├── gui_entry.py    # PyInstaller entry point — calls PlumeApp().run() directly
 │   ├── hotkey.py       # GlobalHotkeyListener (pynput)
-│   ├── notifier.py     # notify() via notify-send
+│   ├── notifier.py     # notify() — notify-send on Linux, plyer on Windows
 │   ├── prompts.py      # get_prompt(mode) — 4 system prompts
 │   ├── replace.py      # replace_selection() — sets clipboard, simulates Ctrl+V
 │   ├── settings.py     # SettingsDialog (tkinter Toplevel, opened via right-click menu)
@@ -52,8 +56,8 @@ plume/
 
 | File | Contents |
 |---|---|
-| `~/.config/plume/config.toml` | `api_base_url`, `model`, `hotkey`, `mode`, `widget_position` |
-| `~/.config/plume/.env` | `PLUME_API_KEY` only — never written to TOML |
+| `~/.config/plume/config.toml` (Linux) / `%LOCALAPPDATA%\plume\plume\config.toml` (Windows) | `api_base_url`, `model`, `hotkey`, `mode`, `widget_position` |
+| same dir / `.env` | `PLUME_API_KEY` only — never written to TOML |
 
 Paths via `platformdirs.user_config_dir("plume")`. `CONFIG_DIR` in `config.py` is monkeypatchable in tests.
 
@@ -78,8 +82,6 @@ Right-clicking the widget opens a popup menu to switch mode. The chosen mode is 
 6. `replace.py` writes the result to clipboard and simulates Ctrl+V
 7. `notifier.py` shows a mode-specific desktop notification
 
-The GNOME custom shortcut from Phase 2 should be **removed** — pynput handles the hotkey directly inside the running app.
-
 ## Response parsing (fixer.py)
 
 1. Strip whitespace
@@ -89,11 +91,11 @@ The GNOME custom shortcut from Phase 2 should be **removed** — pynput handles 
 
 ## First-run wizard (wizard.py)
 
-Triggered automatically when `~/.config/plume/config.toml` does not exist. Shows a 3-step tkinter `Toplevel`: Welcome → form (API URL, key, model) → Done. Calls `save_config()` on completion. If the user cancels, the app exits cleanly. The root `Tk` window is withdrawn during the wizard and shown only after it completes.
+Triggered automatically when `config.toml` does not exist. Shows a 3-step tkinter `Toplevel`: Welcome → form (API URL, key, model) → Done. Calls `save_config()` on completion. If the user cancels, the app exits cleanly.
 
 ## Settings dialog (settings.py)
 
-Opened from the right-click popup menu on the widget (or tray menu when available). A tkinter `Toplevel` with fields for API URL, API key, model, and hotkey. On save: writes config to disk and updates the live `PlumeApp` state. If the hotkey changed, the `GlobalHotkeyListener` is stopped and restarted immediately — no app restart needed.
+Opened from the right-click popup menu on the widget (or tray menu when available). Fields: API URL, API key, model, hotkey. On save: writes config to disk and updates live `PlumeApp` state. If the hotkey changed, `GlobalHotkeyListener` is stopped and restarted immediately. Height is auto-sized after build so it fits on all platforms.
 
 ## Widget interaction (widget.py)
 
@@ -103,16 +105,43 @@ Opened from the right-click popup menu on the widget (or tray menu when availabl
 - Widget label and ring color reflect the active mode
 - States: idle → busy (pulsing ring) → success (emerald, 1.5 s) → idle
 
-## Running the app
+## Platform-specific behaviour
+
+### Linux
+- Circle mask via X11 Shape Extension (`_apply_circle_mask_x11`)
+- Notifications via `notify-send`
+- Clipboard via `pyperclip` + `xclip`
+
+### Windows
+- Circle mask via `wm_attributes("-transparentcolor", BG)` (`_apply_circle_mask_windows`)
+- `WS_EX_NOACTIVATE` set on widget HWND so clicking it never steals focus from the source app
+- Notifications via `plyer` (Windows-only dep, platform marker in `pyproject.toml`)
+- Clipboard via `pyperclip` (works natively)
+
+## Windows installer
+
+Triggered by pushing a `v*` tag. GitHub Actions (`build-windows.yml`) runs on `windows-latest`:
+1. `uv sync` + `uv pip install pyinstaller`
+2. `pyinstaller plume.spec` → `dist/plume/` (onedir, no console)
+3. Inno Setup `installer.iss` → `Output/PlumeSetup.exe`
+4. Published as a GitHub Release asset
+
+The installer: no admin rights needed, installs to `%ProgramFiles%\Plume`, adds startup registry entry (`HKCU\...\Run`), includes uninstaller.
+
+To release:
+```bash
+git tag v0.x.0
+git push origin v0.x.0
+```
+
+## Running the app (dev)
 
 ```bash
 source "$HOME/snap/code/237/.local/share/../bin/env"
 uv run plume run        # starts widget + tray + hotkey listener
-uv run plume fix        # Phase 2 clipboard mode (still works)
-uv run plume fix "text" # Phase 1 positional (still works)
+uv run plume fix        # clipboard mode
+uv run plume fix "text" # positional
 ```
-
-To start automatically on login: add `plume run` to GNOME Startup Applications.
 
 ## Code style
 
@@ -128,19 +157,18 @@ To start automatically on login: add `plume run` to GNOME Startup Applications.
 - `ConfigError` — missing config
 - `FixerError` — LLM timeout / HTTP errors
 - `ClipboardError` — xclip missing or clipboard empty
-- Runtime errors shown as desktop notifications via notify-send
+- Runtime errors shown as desktop notifications
 
 ## Known gotchas
 
 - PyQt6 blocked by glibc 2.31 on Ubuntu 20.04 — see GUI branch note above
-- tkinter must be available: `sudo apt-get install python3-tk` if missing
-- pystray tray icon on GNOME requires AppIndicator extension + PyGObject; PyGObject won't build on Python 3.14 / Ubuntu 20.04 — tray is silently disabled, settings are accessible via right-click on the widget instead
-- Widget corners are clipped to a true circle via the X11 Shape Extension (python-xlib, already installed via pynput)
-- xclip required: `sudo apt-get install xclip`
+- tkinter must be available on Linux: `sudo apt-get install python3-tk`
+- pystray tray icon on GNOME requires AppIndicator extension + PyGObject — tray is silently disabled if unavailable; settings accessible via right-click on widget instead
+- xclip required on Linux: `sudo apt-get install xclip`
 - pynput GlobalHotKeys runs in a thread — UI updates must go through `root.after()`
 - `asyncio_mode = "auto"` in pytest — no `@pytest.mark.asyncio` needed
 - Root `Tk` window is withdrawn at startup and shown only after FloatingWidget is fully configured — avoids the "tk" title bar flash
-- Some LLM models inject markdown formatting (`**bold**`) into their output — `_strip_markdown()` in `fixer.py` removes it
+- Some LLM models inject markdown formatting into their output — `_strip_markdown()` in `fixer.py` removes it
 
 ## Running the checks
 
@@ -163,7 +191,6 @@ uv run mypy plume
 
 ## Hard constraints
 
-- OS target: Ubuntu (Linux + Windows in Phase 5). X11 uses `pynput` + `pyperclip`.
+- OS target: Linux + Windows.
 - GUI: tkinter for now; PyQt6 on Ubuntu 22.04+
 - No telemetry, no cloud sync, no analytics.
-- Logs: `~/.cache/plume/plume.log`, `RotatingFileHandler` 5 MB cap.

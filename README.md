@@ -1,50 +1,52 @@
 # Plume — Correcteur et traducteur de texte
 
-Outil bureau pour Ubuntu qui corrige et traduit du texte dans n'importe quelle application via un raccourci clavier global et un bouton flottant toujours visible.
+Outil bureau pour Linux et Windows qui corrige et traduit du texte dans n'importe quelle application via un raccourci clavier global et un bouton flottant toujours visible.
 
 Le contrat est strict : **corriger uniquement ; ne jamais changer le sens, ne jamais ajouter ni supprimer d'information.**
 
 ---
 
-## Prérequis
-
-- Ubuntu 20.04+ (testé sur 20.04)
-- Python 3.11+
-- [uv](https://docs.astral.sh/uv/)
-- `xclip` pour le presse-papiers : `sudo apt install xclip`
-- Un endpoint LLM compatible OpenAI (ex. LiteLLM)
-
 ## Installation
 
+### Windows (recommandé)
+
+Télécharger `PlumeSetup.exe` depuis la page [Releases](https://github.com/atef5-in/Plume/releases), double-cliquer et suivre l'assistant. Plume démarre automatiquement à chaque connexion.
+
+### Linux (depuis les sources)
+
 ```bash
-git clone https://github.com/atef5-in/plume.git
-cd plume
+# Prérequis
+sudo apt install xclip python3-tk
+
+git clone https://github.com/atef5-in/Plume.git
+cd Plume
 uv sync
-```
-
-## Configuration initiale
-
-Au premier lancement, un assistant de configuration s'ouvre automatiquement et guide pas à pas : URL de l'API, clé, modèle. La clé est stockée dans `~/.config/plume/.env`, jamais dans le TOML.
-
-Pour modifier la configuration ultérieurement : clic droit sur le bouton flottant → fenêtre Paramètres. Les changements (y compris le raccourci clavier) prennent effet immédiatement sans redémarrage.
-
-## Utilisation
-
-```bash
 uv run plume run
 ```
 
-Lance un bouton flottant circulaire toujours visible sur le bureau.
+Pour démarrer automatiquement au login : ajouter `uv run plume run` aux Applications au démarrage de GNOME.
 
-1. Sélectionner le texte dans n'importe quelle application
-2. Appuyer sur `Ctrl+Alt+F`
+---
+
+## Configuration initiale
+
+Au premier lancement, un assistant de configuration s'ouvre automatiquement : URL de l'API, clé, modèle. La clé est stockée dans le répertoire de config utilisateur, jamais en clair dans le TOML.
+
+Pour modifier la configuration : clic droit sur le bouton flottant → **Paramètres**. Les changements (y compris le raccourci clavier) prennent effet immédiatement.
+
+---
+
+## Utilisation
+
+1. Sélectionner du texte dans n'importe quelle application
+2. Appuyer sur `Ctrl+Alt+F` (ou cliquer le bouton flottant)
 3. Le texte est automatiquement copié, traité et collé en place
 
-Pour démarrer automatiquement au login : ajouter `plume run` aux Applications au démarrage de GNOME.
+---
 
 ## Les 4 modes
 
-Le bouton change de couleur et d'étiquette selon le mode actif. Clic droit sur le bouton pour changer de mode.
+Clic droit sur le bouton pour changer de mode. Le mode est mémorisé entre les sessions.
 
 | Mode | Étiquette | Couleur |
 |---|---|---|
@@ -53,9 +55,9 @@ Le bouton change de couleur et d'étiquette selon le mode actif. Clic droit sur 
 | Traduire FR → EN | F›E | Ambré |
 | Traduire EN → FR | E›F | Violet |
 
-Le mode choisi est conservé après redémarrage.
+---
 
-## Modes CLI (toujours disponibles)
+## Modes CLI
 
 ```bash
 uv run plume fix "Bonjour, ca va prendre 10 min"
@@ -63,26 +65,43 @@ echo "Salut Thomas, ca marche pas encore." | uv run plume fix --stdin
 uv run plume fix   # lit le presse-papiers
 ```
 
+---
+
 ## Stack
 
 - Transport LLM : `httpx` → endpoint OpenAI-compatible (LiteLLM)
-- Config : Pydantic v2 · TOML (`tomllib` / `tomli-w`) · secrets dans `.env`
-- GUI : `tkinter` + X11 Shape Extension (fenêtre vraiment circulaire, sans coins)
+- Config : Pydantic v2 · TOML · secrets dans `.env`
+- GUI : `tkinter` (cercle via X11 Shape sur Linux, `-transparentcolor` sur Windows)
 - Hotkey global : `pynput`
-- Presse-papiers : `pyperclip` + `xclip`
-- Notifications : `notify-send`
-- Chemins : `platformdirs` (pas de `~/.config` codé en dur)
+- Presse-papiers : `pyperclip`
+- Notifications : `notify-send` (Linux) · `plyer` (Windows)
+- Chemins : `platformdirs`
 - Lint / types : `ruff` + `mypy --strict`
 - Tests : `pytest` + `pytest-httpx` (26 tests)
+- Installeur Windows : PyInstaller + Inno Setup + GitHub Actions
 
-> ⚠️ Note Ubuntu 20.04 : cette version utilise `tkinter` au lieu de PyQt6 (glibc 2.31 insuffisant). La migration vers PyQt6 est prévue lors du passage à Ubuntu 22.04+.
+---
+
+## Publier une nouvelle version
+
+```bash
+git tag v0.x.0
+git push origin v0.x.0
+```
+
+GitHub Actions construit automatiquement `PlumeSetup.exe` et le publie dans les Releases.
+
+---
 
 ## Configuration
 
 | Fichier | Contenu |
 |---|---|
-| `~/.config/plume/config.toml` | `api_base_url`, `model`, `hotkey`, `mode`, `widget_position` |
-| `~/.config/plume/.env` | `PLUME_API_KEY` uniquement |
+| Linux : `~/.config/plume/config.toml` | `api_base_url`, `model`, `hotkey`, `mode`, `widget_position` |
+| Windows : `%LOCALAPPDATA%\plume\plume\config.toml` | idem |
+| `.env` (même dossier) | `PLUME_API_KEY` uniquement |
+
+---
 
 ## Phases de développement
 
@@ -91,7 +110,9 @@ uv run plume fix   # lit le presse-papiers
 - [x] Phase 3 — Widget flottant + hotkey global + notifications
 - [x] Phase 4 — Dialogue paramètres + assistant première utilisation
 - [x] Phase 4b — 4 modes (corriger FR/EN, traduire FR↔EN)
-- [ ] Phase 5 — Support multiplateforme (Linux + Windows)
+- [x] Phase 5 — Support multiplateforme (Linux + Windows) + installeur Windows
+
+---
 
 ## Tests
 
@@ -100,3 +121,5 @@ uv run pytest -v
 uv run ruff check plume tests
 uv run mypy plume
 ```
+
+> ⚠️ Note Ubuntu 20.04 : cette version utilise `tkinter` au lieu de PyQt6 (glibc 2.31 insuffisant). La migration vers PyQt6 est prévue lors du passage à Ubuntu 22.04+.
