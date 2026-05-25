@@ -112,6 +112,7 @@ class PlumeApp:
             )
         menu.add_separator()
         menu.add_command(label="Paramètres", command=self._open_settings)
+        menu.add_command(label="Fermer ✕", command=self.quit)
         try:
             menu.tk_popup(x, y)
         finally:

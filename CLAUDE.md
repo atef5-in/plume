@@ -100,7 +100,7 @@ Opened from the right-click popup menu on the widget (or tray menu when availabl
 ## Widget interaction (widget.py)
 
 - Left-click: trigger fix/translate using the active mode
-- Right-click: open mode popup menu (4 modes + Settings)
+- Right-click: open popup menu (4 modes + Paramètres + Fermer ✕ to quit)
 - Drag: reposition the widget anywhere on screen
 - Widget label and ring color reflect the active mode
 - States: idle → busy (pulsing ring) → success (emerald, 1.5 s) → idle

@@ -32,7 +32,7 @@ Pour démarrer automatiquement au login : ajouter `uv run plume run` aux Applica
 
 Au premier lancement, un assistant de configuration s'ouvre automatiquement : URL de l'API, clé, modèle. La clé est stockée dans le répertoire de config utilisateur, jamais en clair dans le TOML.
 
-Pour modifier la configuration : clic droit sur le bouton flottant → **Paramètres**. Les changements (y compris le raccourci clavier) prennent effet immédiatement.
+Pour modifier la configuration : clic droit sur le bouton flottant → **Paramètres**. Les changements (y compris le raccourci clavier) prennent effet immédiatement. Pour quitter l'application : clic droit → **Fermer ✕**.
 
 ---
 
