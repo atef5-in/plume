@@ -1,7 +1,16 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
+
+
+def _windows_icon_path() -> str | None:
+    base = getattr(sys, "_MEIPASS", None) or os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))
+    )
+    path = os.path.join(base, "plume.ico")
+    return path if os.path.isfile(path) else None
 
 
 def notify(title: str, body: str, level: str = "normal") -> None:
@@ -26,6 +35,15 @@ def _notify_windows(title: str, body: str) -> None:
     try:
         from plyer import notification
 
-        notification.notify(title=title, message=body, app_name="Plume", timeout=5)
+        icon = _windows_icon_path()
+        kwargs: dict[str, object] = {
+            "title": title,
+            "message": body,
+            "app_name": "Plume",
+            "timeout": 5,
+        }
+        if icon:
+            kwargs["app_icon"] = icon
+        notification.notify(**kwargs)
     except Exception:
         pass

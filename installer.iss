@@ -15,12 +15,13 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayName=Plume
 UninstallDisplayIcon={app}\plume.exe
+SetupIconFile=plume.ico
 
 [Files]
 Source: "dist\plume\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\Plume"; Filename: "{app}\plume.exe"
+Name: "{group}\Plume"; Filename: "{app}\plume.exe"; IconFilename: "{app}\_internal\plume.ico"
 Name: "{group}\Désinstaller Plume"; Filename: "{uninstallexe}"
 
 [Registry]

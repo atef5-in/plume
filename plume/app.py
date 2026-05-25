@@ -17,15 +17,15 @@ from plume.widget import FloatingWidget
 HOTKEY_SETTLE = 0.12  # seconds — let hotkey keys release before Ctrl+C
 
 _MODE_MENU_LABELS: dict[Mode, str] = {
-    Mode.FIX_FRENCH:      "Corriger le français",
-    Mode.FIX_ENGLISH:     "Corriger l'anglais",
+    Mode.FIX_FRENCH: "Corriger le français",
+    Mode.FIX_ENGLISH: "Corriger l'anglais",
     Mode.TRANSLATE_FR_EN: "Traduire FR → EN",
     Mode.TRANSLATE_EN_FR: "Traduire EN → FR",
 }
 
 _MODE_DONE_MESSAGES: dict[Mode, str] = {
-    Mode.FIX_FRENCH:      "✓ Français corrigé",
-    Mode.FIX_ENGLISH:     "✓ English fixed",
+    Mode.FIX_FRENCH: "✓ Français corrigé",
+    Mode.FIX_ENGLISH: "✓ English fixed",
     Mode.TRANSLATE_FR_EN: "✓ Translated to English",
     Mode.TRANSLATE_EN_FR: "✓ Texte traduit en français",
 }
@@ -87,10 +87,12 @@ class PlumeApp:
 
     def _run_wizard(self) -> Config | None:
         from plume.wizard import run_wizard
+
         return run_wizard(self._root)
 
     def _open_settings(self) -> None:
         from plume.settings import SettingsDialog
+
         self._root.after(0, lambda: SettingsDialog(self._root, self._cfg, self._apply_settings))
 
     def _apply_settings(self, cfg: Config) -> None:

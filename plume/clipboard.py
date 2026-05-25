@@ -12,8 +12,7 @@ def get_clipboard() -> str:
         text: str = pyperclip.paste()
     except pyperclip.PyperclipException as exc:
         raise ClipboardError(
-            "Impossible d'accéder au presse-papiers. "
-            "Installez xclip : sudo apt-get install xclip"
+            "Impossible d'accéder au presse-papiers. Installez xclip : sudo apt-get install xclip"
         ) from exc
     if not text:
         raise ClipboardError("Le presse-papiers est vide.")

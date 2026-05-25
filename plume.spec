@@ -4,7 +4,7 @@ a = Analysis(
     ["plume/gui_entry.py"],
     pathex=["."],
     binaries=[],
-    datas=[],
+    datas=[("plume.ico", ".")],
     hiddenimports=[
         "pynput.keyboard._win32",
         "pynput.mouse._win32",
@@ -34,6 +34,7 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,  # no terminal window
+    icon="plume.ico",
 )
 coll = COLLECT(
     exe,

@@ -43,16 +43,22 @@ class SettingsDialog:
 
     def _entry(self, parent: tk.Widget, show: str = "") -> tk.Entry:
         return tk.Entry(
-            parent, bg=_ENTRY_BG, fg=_FG, insertbackground=_FG,
-            relief="flat", font=("Arial", 11), show=show,
+            parent,
+            bg=_ENTRY_BG,
+            fg=_FG,
+            insertbackground=_FG,
+            relief="flat",
+            font=("Arial", 11),
+            show=show,
         )
 
     def _build(self) -> None:
         frame = tk.Frame(self._win, bg=_BG)
         frame.pack(fill="both", expand=True, padx=30, pady=20)
 
-        tk.Label(frame, text="Paramètres", bg=_BG, fg=_FG,
-                 font=("Arial", 16, "bold")).pack(anchor="w", pady=(0, 14))
+        tk.Label(frame, text="Paramètres", bg=_BG, fg=_FG, font=("Arial", 16, "bold")).pack(
+            anchor="w", pady=(0, 14)
+        )
 
         def row(label: str, default: str = "", show: str = "") -> tk.Entry:
             tk.Label(frame, text=label, bg=_BG, fg=_FG, font=("Arial", 10)).pack(
@@ -71,14 +77,27 @@ class SettingsDialog:
         bar = tk.Frame(frame, bg=_BG)
         bar.pack(side="bottom", fill="x", pady=(10, 0))
         tk.Button(
-            bar, text="Annuler", command=self._win.destroy,
-            bg=_BTN_SECONDARY_BG, fg=_FG, relief="flat",
-            font=("Arial", 11), padx=12, pady=6,
+            bar,
+            text="Annuler",
+            command=self._win.destroy,
+            bg=_BTN_SECONDARY_BG,
+            fg=_FG,
+            relief="flat",
+            font=("Arial", 11),
+            padx=12,
+            pady=6,
         ).pack(side="left")
         tk.Button(
-            bar, text="Enregistrer", command=self._save,
-            bg=_BTN_PRIMARY_BG, fg=_FG, relief="flat",
-            font=("Arial", 11, "bold"), padx=12, pady=6, cursor="hand2",
+            bar,
+            text="Enregistrer",
+            command=self._save,
+            bg=_BTN_PRIMARY_BG,
+            fg=_FG,
+            relief="flat",
+            font=("Arial", 11, "bold"),
+            padx=12,
+            pady=6,
+            cursor="hand2",
         ).pack(side="right")
 
     def _save(self) -> None:

@@ -5,8 +5,8 @@ import time
 import pyperclip
 from pynput.keyboard import Controller, Key
 
-RELEASE_DELAY = 0.05   # seconds — let hotkey keys finish releasing
-CAPTURE_DELAY = 0.15   # seconds — wait for target app to fill clipboard
+RELEASE_DELAY = 0.05  # seconds — let hotkey keys finish releasing
+CAPTURE_DELAY = 0.15  # seconds — wait for target app to fill clipboard
 
 
 def capture_selection() -> str:

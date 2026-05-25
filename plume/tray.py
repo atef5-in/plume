@@ -41,17 +41,13 @@ class TrayIcon:
 
             menu = pystray.Menu(
                 pystray.MenuItem("Corriger la sélection", lambda _i, _it: self._on_fix()),
-                pystray.MenuItem(
-                    "Afficher / Masquer le widget", lambda _i, _it: self._on_toggle()
-                ),
+                pystray.MenuItem("Afficher / Masquer le widget", lambda _i, _it: self._on_toggle()),
                 pystray.MenuItem("Paramètres", lambda _i, _it: self._on_settings()),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Quitter", lambda _i, _it: self._on_quit()),
             )
             self._icon = pystray.Icon("plume", _make_icon(), "Plume", menu)
-            thread = threading.Thread(
-                target=self._run_silently, daemon=True, name="plume-tray"
-            )
+            thread = threading.Thread(target=self._run_silently, daemon=True, name="plume-tray")
             thread.start()
         except Exception:
             # Tray is optional — app works fine without it

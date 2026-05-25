@@ -48,25 +48,41 @@ class FirstRunWizard:
 
     def _lbl(self, parent: tk.Widget, text: str, size: int = 11, bold: bool = False) -> tk.Label:
         return tk.Label(
-            parent, text=text, bg=_BG, fg=_FG,
+            parent,
+            text=text,
+            bg=_BG,
+            fg=_FG,
             font=("Arial", size, "bold" if bold else "normal"),
-            wraplength=_WIDTH - 60, justify="left",
+            wraplength=_WIDTH - 60,
+            justify="left",
         )
 
     def _entry(self, parent: tk.Widget, show: str = "") -> tk.Entry:
         return tk.Entry(
-            parent, bg=_ENTRY_BG, fg=_FG, insertbackground=_FG,
-            relief="flat", font=("Arial", 11), show=show,
+            parent,
+            bg=_ENTRY_BG,
+            fg=_FG,
+            insertbackground=_FG,
+            relief="flat",
+            font=("Arial", 11),
+            show=show,
         )
 
-    def _btn(self, parent: tk.Widget, text: str, command: object,
-             primary: bool = True) -> tk.Button:
+    def _btn(
+        self, parent: tk.Widget, text: str, command: object, primary: bool = True
+    ) -> tk.Button:
         bg = _BTN_PRIMARY_BG if primary else _BTN_SECONDARY_BG
         return tk.Button(
-            parent, text=text, command=command,  # type: ignore[arg-type]
-            bg=bg, fg=_FG, relief="flat",
+            parent,
+            text=text,
+            command=command,  # type: ignore[arg-type]
+            bg=bg,
+            fg=_FG,
+            relief="flat",
             font=("Arial", 11, "bold" if primary else "normal"),
-            padx=14, pady=6, cursor="hand2",
+            padx=14,
+            pady=6,
+            cursor="hand2",
         )
 
     # ── steps ─────────────────────────────────────────────────────────────────

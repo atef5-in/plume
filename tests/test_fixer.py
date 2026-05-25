@@ -68,9 +68,7 @@ async def test_url_constructed_correctly(httpx_mock: HTTPXMock, cfg: Config) -> 
 
 
 async def test_strips_preamble(httpx_mock: HTTPXMock, cfg: Config) -> None:
-    httpx_mock.add_response(
-        json=_llm_response("Voici le texte corrigé :\n\nBonjour, ça va ?")
-    )
+    httpx_mock.add_response(json=_llm_response("Voici le texte corrigé :\n\nBonjour, ça va ?"))
     result = await fix_text("Bonjour, ca va?", cfg)
     assert result == "Bonjour, ça va ?"
 
