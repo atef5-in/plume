@@ -17,6 +17,7 @@ plume/
 ├── pyproject.toml
 ├── plume.spec          # PyInstaller spec for Windows exe
 ├── installer.iss       # Inno Setup script for PlumeSetup.exe
+├── plume.ico           # App icon (multi-size: 16/24/32/48/64/128/256)
 ├── .github/
 │   └── workflows/
 │       └── build-windows.yml  # CI: builds + publishes installer on v* tags
@@ -115,15 +116,15 @@ Opened from the right-click popup menu on the widget (or tray menu when availabl
 ### Windows
 - Circle mask via `wm_attributes("-transparentcolor", BG)` (`_apply_circle_mask_windows`)
 - `WS_EX_NOACTIVATE` set on widget HWND so clicking it never steals focus from the source app
-- Notifications via `plyer` (Windows-only dep, platform marker in `pyproject.toml`)
+- Notifications via `plyer` (Windows-only dep, platform marker in `pyproject.toml`); toast uses `plume.ico` resolved via `sys._MEIPASS`
 - Clipboard via `pyperclip` (works natively)
 
 ## Windows installer
 
 Triggered by pushing a `v*` tag. GitHub Actions (`build-windows.yml`) runs on `windows-latest`:
 1. `uv sync` + `uv pip install pyinstaller`
-2. `pyinstaller plume.spec` → `dist/plume/` (onedir, no console)
-3. Inno Setup `installer.iss` → `Output/PlumeSetup.exe`
+2. `pyinstaller plume.spec` → `dist/plume/` (onedir, no console; `plume.ico` bundled and embedded in the exe)
+3. Inno Setup `installer.iss` → `Output/PlumeSetup.exe` (uses `plume.ico` via `SetupIconFile`)
 4. Published as a GitHub Release asset
 
 The installer: no admin rights needed, installs to `%ProgramFiles%\Plume`, adds startup registry entry (`HKCU\...\Run`), includes uninstaller.
