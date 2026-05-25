@@ -56,3 +56,25 @@ _PROMPTS: dict[Mode, str] = {
 
 def get_prompt(mode: Mode) -> str:
     return _PROMPTS[mode]
+
+
+_REWRITE_TONE_TEMPLATE = """Tu es un assistant de réécriture en français. Tu reçois un texte et tu dois le réécrire en respectant le ton décrit ci-dessous. Tu retournes UNIQUEMENT le texte réécrit, sans aucun commentaire, sans guillemets autour, sans préambule, sans postambule.
+
+Ton à respecter :
+{tone_description}
+
+Règles strictes :
+1. Reste fidèle au contenu original — ne restructure pas le texte, ne change pas l'ordre des idées.
+2. N'ajoute AUCUNE information qui n'est pas déjà dans le texte original.
+3. Ne supprime aucune information.
+4. Une légère reformulation du vocabulaire et du registre est autorisée uniquement si elle est nécessaire pour respecter le ton demandé.
+5. Reproduis à l'identique tous les chiffres, dates, durées, délais et quantités (ex. « fin du mois prochain » ne doit jamais devenir « fin du mois »).
+5bis. Ne remplace JAMAIS une expression vague par une précision (ex. « depuis pas mal de temps » ne doit pas devenir « depuis plusieurs mois » ; « bientôt » ne doit pas devenir « la semaine prochaine »). Si l'original est vague, la réécriture doit rester vague.
+6. Conserve la mise en forme : sauts de ligne, listes à puces, listes numérotées, indentation.
+7. Conserve les noms propres, les acronymes, les termes techniques et le code tels quels.
+8. Conserve le registre d'adresse du texte original (tutoiement / vouvoiement) de bout en bout.
+9. Utilise les accents et la ponctuation française correctement."""
+
+
+def get_rewrite_prompt(tone_description: str) -> str:
+    return _REWRITE_TONE_TEMPLATE.format(tone_description=tone_description.strip())

@@ -24,6 +24,12 @@ class Mode(StrEnum):
     FIX_ENGLISH = "fix_english"
     TRANSLATE_FR_EN = "translate_fr_en"
     TRANSLATE_EN_FR = "translate_en_fr"
+    REWRITE_TONE = "rewrite_tone"
+
+
+class Tone(BaseModel):
+    name: str
+    description: str
 
 
 class Config(BaseModel):
@@ -33,6 +39,8 @@ class Config(BaseModel):
     hotkey: str = _DEFAULT_HOTKEY
     mode: Mode = Mode.FIX_FRENCH
     widget_position: tuple[int, int] | None = None
+    tones: list[Tone] = []
+    active_tone: str | None = None
 
 
 def _config_file() -> Path:
@@ -79,6 +87,10 @@ def save_config(cfg: Config) -> None:
     }
     if cfg.widget_position is not None:
         data["widget_position"] = list(cfg.widget_position)
+    if cfg.tones:
+        data["tones"] = [{"name": t.name, "description": t.description} for t in cfg.tones]
+    if cfg.active_tone is not None:
+        data["active_tone"] = cfg.active_tone
 
     with open(_config_file(), "wb") as f:
         tomli_w.dump(data, f)

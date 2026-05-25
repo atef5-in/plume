@@ -16,6 +16,7 @@ _MODE_COLORS: dict[Mode, tuple[str, str, str]] = {
     Mode.FIX_ENGLISH: ("#2563eb", "#1e3a8a", "#1e40af"),  # blue
     Mode.TRANSLATE_FR_EN: ("#d97706", "#78350f", "#92400e"),  # amber
     Mode.TRANSLATE_EN_FR: ("#7c3aed", "#3b0764", "#4c1d95"),  # purple
+    Mode.REWRITE_TONE: ("#0d9488", "#134e4a", "#115e59"),  # teal
 }
 
 # Short label displayed on the circle per mode
@@ -24,6 +25,7 @@ _MODE_LABELS: dict[Mode, str] = {
     Mode.FIX_ENGLISH: "EN",
     Mode.TRANSLATE_FR_EN: "F›E",
     Mode.TRANSLATE_EN_FR: "E›F",
+    Mode.REWRITE_TONE: "T~",
 }
 
 # Busy pulse: dark fill, animated ring

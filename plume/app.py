@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import signal
 import threading
 import time
 import tkinter as tk
@@ -28,6 +29,7 @@ _MODE_DONE_MESSAGES: dict[Mode, str] = {
     Mode.FIX_ENGLISH: "✓ English fixed",
     Mode.TRANSLATE_FR_EN: "✓ Translated to English",
     Mode.TRANSLATE_EN_FR: "✓ Texte traduit en français",
+    Mode.REWRITE_TONE: "✓ Texte réécrit",
 }
 
 
@@ -72,12 +74,57 @@ class PlumeApp:
     def run(self) -> None:
         self._tray.start()
         self._hotkey.start()
+        try:
+            signal.signal(signal.SIGINT, lambda *_: self.quit())
+            signal.signal(signal.SIGTERM, lambda *_: self.quit())
+            if hasattr(signal, "SIGTSTP"):
+                signal.signal(signal.SIGTSTP, self._handle_suspend)
+            if hasattr(signal, "SIGCONT"):
+                signal.signal(signal.SIGCONT, self._handle_resume)
+        except (ValueError, OSError):
+            pass  # signals only settable from the main thread
+        # Wake Tk periodically so signal handlers run between mainloop iterations.
+        self._root.after(200, self._signal_pulse)
         self._root.mainloop()
+
+    def _signal_pulse(self) -> None:
+        self._root.after(200, self._signal_pulse)
+
+    def _handle_suspend(self, *_args: object) -> None:
+        import os
+
+        try:
+            self._root.withdraw()
+            for _ in range(3):
+                self._root.update()
+        except Exception:
+            pass
+        # Re-raise as SIGSTOP (uncatchable) to actually suspend the process.
+        os.kill(os.getpid(), signal.SIGSTOP)
+
+    def _handle_resume(self, *_args: object) -> None:
+        try:
+            self._root.deiconify()
+            self._root.update()
+        except Exception:
+            pass
 
     def quit(self) -> None:
         self._hotkey.stop()
         self._tray.stop()
-        self._root.after(0, self._root.quit)
+        self._root.after(0, self._shutdown)
+
+    def _shutdown(self) -> None:
+        try:
+            self._root.withdraw()
+            for _ in range(3):
+                self._root.update()
+        except Exception:
+            pass
+        try:
+            self._root.destroy()
+        except Exception:
+            pass
 
     def _toggle_widget(self) -> None:
         if self._root.state() == "withdrawn":
@@ -112,6 +159,20 @@ class PlumeApp:
                 label=f"{prefix}{label}",
                 command=lambda m=mode: self._set_mode(m),  # type: ignore[misc]
             )
+
+        tones_menu = tk.Menu(menu, tearoff=0)
+        if self._cfg.tones:
+            for tone in self._cfg.tones:
+                active = self._cfg.mode == Mode.REWRITE_TONE and self._cfg.active_tone == tone.name
+                prefix = "✓ " if active else "   "
+                tones_menu.add_command(
+                    label=f"{prefix}{tone.name}",
+                    command=lambda n=tone.name: self._set_tone(n),  # type: ignore[misc]
+                )
+        else:
+            tones_menu.add_command(label="Aucun ton défini — voir Paramètres", state="disabled")
+        menu.add_cascade(label="   Réécrire en…", menu=tones_menu)
+
         menu.add_separator()
         menu.add_command(label="Paramètres", command=self._open_settings)
         menu.add_command(label="Fermer ✕", command=self.quit)
@@ -124,6 +185,11 @@ class PlumeApp:
         self._cfg = self._cfg.model_copy(update={"mode": mode})
         save_config(self._cfg)
         self._root.after(0, lambda: self._widget.update_mode(mode))
+
+    def _set_tone(self, name: str) -> None:
+        self._cfg = self._cfg.model_copy(update={"mode": Mode.REWRITE_TONE, "active_tone": name})
+        save_config(self._cfg)
+        self._root.after(0, lambda: self._widget.update_mode(Mode.REWRITE_TONE))
 
     def trigger_fix(self) -> None:
         if self._busy:

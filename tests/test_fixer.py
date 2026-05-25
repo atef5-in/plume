@@ -4,7 +4,7 @@ import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 
-from plume.config import Config
+from plume.config import Config, Mode, Tone
 from plume.fixer import FixerError, fix_text
 
 _BASE = "https://test.example.com/v1"
@@ -79,3 +79,39 @@ async def test_auth_header_sent(httpx_mock: HTTPXMock, cfg: Config) -> None:
     request = httpx_mock.get_request()
     assert request is not None
     assert request.headers["authorization"] == "Bearer test-key"
+
+
+async def test_rewrite_tone_sends_tone_description(httpx_mock: HTTPXMock) -> None:
+    import json as _json
+
+    cfg = Config(
+        api_base_url=_BASE,
+        api_key="test-key",
+        model="test-model",
+        tones=[Tone(name="Pro", description="ton professionnel, courtois")],
+        active_tone="Pro",
+    )
+    httpx_mock.add_response(json=_llm_response("réécrit"))
+    await fix_text("texte source", cfg, Mode.REWRITE_TONE)
+    request = httpx_mock.get_request()
+    assert request is not None
+    body = _json.loads(request.content)
+    system_msg = body["messages"][0]["content"]
+    assert "ton professionnel, courtois" in system_msg
+
+
+async def test_rewrite_tone_missing_active_tone(cfg: Config) -> None:
+    with pytest.raises(FixerError, match="Aucun ton"):
+        await fix_text("test", cfg, Mode.REWRITE_TONE)
+
+
+async def test_rewrite_tone_unknown_active_tone() -> None:
+    cfg = Config(
+        api_base_url=_BASE,
+        api_key="test-key",
+        model="test-model",
+        tones=[Tone(name="Pro", description="x")],
+        active_tone="Missing",
+    )
+    with pytest.raises(FixerError, match="introuvable"):
+        await fix_text("test", cfg, Mode.REWRITE_TONE)

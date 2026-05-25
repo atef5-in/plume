@@ -44,7 +44,7 @@ Pour modifier la configuration : clic droit sur le bouton flottant → **Paramè
 
 ---
 
-## Les 4 modes
+## Les 5 modes
 
 Clic droit sur le bouton pour changer de mode. Le mode est mémorisé entre les sessions.
 
@@ -54,6 +54,13 @@ Clic droit sur le bouton pour changer de mode. Le mode est mémorisé entre les 
 | Corriger l'anglais | EN | Bleu |
 | Traduire FR → EN | F›E | Ambré |
 | Traduire EN → FR | E›F | Violet |
+| Réécrire dans un ton personnalisé | T~ | Sarcelle |
+
+### Réécrire dans un ton
+
+Définissez vos propres tons (nom + description en texte libre) dans **Paramètres → Tons personnalisés**. Chaque ton décrit comment le texte doit être réécrit (ex. *concis*, *diplomatique*, *formel*). Sélectionnez ensuite un ton via le sous-menu **Réécrire en…** du clic droit.
+
+Le moteur respecte un contrat strict (pas d'ajout/suppression d'information, dates et chiffres préservés à l'identique, registre tu/vous conservé). Les tons transformatifs (commercial, marketing) peuvent néanmoins introduire des inexactitudes avec les petits modèles — relisez avant de coller.
 
 ---
 
@@ -77,7 +84,7 @@ uv run plume fix   # lit le presse-papiers
 - Notifications : `notify-send` (Linux) · `plyer` (Windows)
 - Chemins : `platformdirs`
 - Lint / types : `ruff` + `mypy --strict`
-- Tests : `pytest` + `pytest-httpx` (26 tests)
+- Tests : `pytest` + `pytest-httpx` (32 tests)
 - Installeur Windows : PyInstaller + Inno Setup + GitHub Actions
 
 ---
@@ -97,7 +104,7 @@ GitHub Actions construit automatiquement `PlumeSetup.exe` et le publie dans les 
 
 | Fichier | Contenu |
 |---|---|
-| Linux : `~/.config/plume/config.toml` | `api_base_url`, `model`, `hotkey`, `mode`, `widget_position` |
+| Linux : `~/.config/plume/config.toml` | `api_base_url`, `model`, `hotkey`, `mode`, `widget_position`, `tones`, `active_tone` |
 | Windows : `%LOCALAPPDATA%\plume\plume\config.toml` | idem |
 | `.env` (même dossier) | `PLUME_API_KEY` uniquement |
 
@@ -111,6 +118,7 @@ GitHub Actions construit automatiquement `PlumeSetup.exe` et le publie dans les 
 - [x] Phase 4 — Dialogue paramètres + assistant première utilisation
 - [x] Phase 4b — 4 modes (corriger FR/EN, traduire FR↔EN)
 - [x] Phase 5 — Support multiplateforme (Linux + Windows) + installeur Windows
+- [x] Phase 6 — 5ᵉ mode : réécriture dans un ton personnalisé (liste éditable de tons)
 
 ---
 

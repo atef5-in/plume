@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import plume.config as config_module
-from plume.config import Config, ConfigError, load_config, save_config
+from plume.config import Config, ConfigError, Mode, Tone, load_config, save_config
 
 
 @pytest.fixture(autouse=True)
@@ -61,6 +61,26 @@ def test_load_missing_required_fields() -> None:
     # No config.toml, no .env → must raise ConfigError
     with pytest.raises(ConfigError):
         load_config()
+
+
+def test_tones_roundtrip() -> None:
+    cfg = Config(
+        api_base_url="https://example.com/v1",
+        api_key="k",
+        model="m",
+        mode=Mode.REWRITE_TONE,
+        tones=[
+            Tone(name="Pro", description="ton professionnel"),
+            Tone(name="Concis", description="phrases courtes, factuel"),
+        ],
+        active_tone="Pro",
+    )
+    save_config(cfg)
+    loaded = load_config()
+    assert loaded.mode == Mode.REWRITE_TONE
+    assert [t.name for t in loaded.tones] == ["Pro", "Concis"]
+    assert loaded.tones[0].description == "ton professionnel"
+    assert loaded.active_tone == "Pro"
 
 
 def test_custom_hotkey_survives_roundtrip() -> None:

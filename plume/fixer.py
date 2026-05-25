@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 
 from plume.config import Config, Mode
-from plume.prompts import get_prompt
+from plume.prompts import get_prompt, get_rewrite_prompt
 
 TIMEOUT = 30.0
 
@@ -24,6 +24,10 @@ _PREAMBLE_MARKERS = (
     "voici la traduction",
     "traduction :",
     "translation:",
+    # Rewrite preambles
+    "voici le texte réécrit",
+    "voici la réécriture",
+    "texte réécrit",
 )
 
 
@@ -59,12 +63,23 @@ def _strip_surrounding_quotes(text: str) -> str:
     return text
 
 
+def _system_prompt(cfg: Config, mode: Mode) -> str:
+    if mode is Mode.REWRITE_TONE:
+        if cfg.active_tone is None:
+            raise FixerError("Aucun ton sélectionné — choisissez-en un dans le menu Réécrire en…")
+        tone = next((t for t in cfg.tones if t.name == cfg.active_tone), None)
+        if tone is None:
+            raise FixerError(f"Ton « {cfg.active_tone} » introuvable — vérifiez vos Paramètres.")
+        return get_rewrite_prompt(tone.description)
+    return get_prompt(mode)
+
+
 async def fix_text(text: str, cfg: Config, mode: Mode = Mode.FIX_FRENCH) -> str:
     url = cfg.api_base_url.rstrip("/") + "/chat/completions"
     payload = {
         "model": cfg.model,
         "messages": [
-            {"role": "system", "content": get_prompt(mode)},
+            {"role": "system", "content": _system_prompt(cfg, mode)},
             {"role": "user", "content": text},
         ],
         "temperature": 0.1,
