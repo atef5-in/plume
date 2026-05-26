@@ -89,7 +89,7 @@ Strip whitespace → strip surrounding quotes → strip preamble lines → strip
 
 **Floating widget** (`widget.py`): 52×52 frameless, Pillow-rendered at 4× and downsampled with LANCZOS. Idle = neutral fill + thin accent ring + bold label. Busy = bright rotating arc (900ms cycle). Success = emerald tint + check (1500ms hold). Error = red tint + `!` + 220ms shake (1500ms hold). PhotoImage held on instance so Tk doesn't GC it.
 
-**Dialogs** (`settings.py`, `wizard.py`): customtkinter with `OS chrome`. We tried `overrideredirect(True)` + custom titlebar; it deadlocks keyboard input on Linux WMs. We dropped overrideredirect — OS titlebars look slightly different per platform but everything works. `grab_set()` is deferred 80ms via `after()` so the window is fully mapped first.
+**Dialogs** (`settings.py`, `wizard.py`): customtkinter with `OS chrome`. We tried `overrideredirect(True)` + custom titlebar; it deadlocks keyboard input on Linux WMs. We dropped overrideredirect — OS titlebars look slightly different per platform but everything works. `grab_set()` is deferred 80ms via `after()` so the window is fully mapped first. All toplevels also call `deiconify() + lift() + focus_force()` on open — without this, Windows opens the dialog inactive (because the floating widget HWND has `WS_EX_NOACTIVATE`) and the first click on any button only activates the window instead of triggering the command.
 
 **Shared UI module** (`ui.py`): `primary_button`, `secondary_button`, `card_action_button`, `entry`, `field_label`, `helper`, `section_header`, `card`, and `safe_alert(win, title, msg)` which releases grab around messagebox calls to prevent the frameless-modal deadlock.
 
@@ -119,7 +119,7 @@ Strip whitespace → strip surrounding quotes → strip preamble lines → strip
 Triggered by pushing a `v*` tag. `.github/workflows/build-windows.yml` runs on `windows-latest`:
 1. `uv sync` + `uv pip install pyinstaller`
 2. `pyinstaller plume.spec` → `dist/plume/` (onedir, no console)
-3. Inno Setup `installer.iss` → `Output/PlumeSetup.exe`
+3. Inno Setup `installer.iss` (`AppVersion` injected via `ISCC /DAppVersion=<tag>` so the setup wizard shows the real version) → `Output/PlumeSetup.exe`
 4. Published as GitHub Release asset
 
 `plume.spec` uses `collect_data_files("customtkinter")` to bundle its theme JSON files — without that, the .exe crashes on first dialog open. Installer needs no admin, installs to `%ProgramFiles%\Plume`, adds startup registry entry, includes uninstaller.
@@ -161,6 +161,7 @@ uv run plume fix "text" # positional
 - **safe_alert grab juggling**: `messagebox.showerror` from inside a `grab_set` window can deadlock — `ui.safe_alert()` releases the grab around the messagebox and reacquires after.
 - **PhotoImage GC**: Pillow images blitted onto a Canvas must be held on `self._tk_image` or Tk garbage-collects them and they disappear.
 - **`pack_propagate(False)` on `CTkScrollableFrame`**: breaks the inner canvas geometry and child widgets never render. Only apply it to plain `CTkFrame` variants — the scrollable one manages its own size.
+- **Right-click menu auto-dismiss**: `tk_popup` + a `finally: grab_release()` is the textbook pattern but the menu doesn't auto-close on Windows when the widget HWND has `WS_EX_NOACTIVATE`. Bind `<FocusOut>` → `menu.unpost()` and call `menu.focus_set()` after `tk_popup` (`app.py:_show_mode_menu`).
 - **pystray on GNOME**: needs `python3-gi` + AppIndicator extension. Without them, pystray falls back to XEmbed which GNOME ignored years ago. Silently disabled — right-click widget menu is the fallback.
 - **PyInstaller + customtkinter**: spec must include `collect_data_files("customtkinter")` and `darkdetect` as hidden import or the .exe fails at first dialog open.
 - xclip required on Linux: `sudo apt-get install xclip`
