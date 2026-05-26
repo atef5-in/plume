@@ -6,154 +6,131 @@ A desktop tool for Linux and Windows that fixes and translates text in any appli
 
 **The contract is strict: fix only spelling/accents/punctuation/grammar; never change meaning, never add or remove information.** The rewrite-tone mode inherits the same fidelity contract — light rephrasing for register/tone is allowed, but no restructuring, no added or dropped information, dates/numbers/durations preserved verbatim.
 
-## ⚠️ GUI branch note
+## GUI stack
 
-The original plan specifies PyQt6. This machine runs Ubuntu 20.04 (glibc 2.31) which is below PyQt6's minimum (glibc 2.34). Phases 3–5 are therefore implemented with **tkinter + pystray** instead. This is a temporary deviation — when the machine is upgraded to Ubuntu 22.04/24.04, the GUI should be rewritten with PyQt6.
+`tkinter` for the floating widget (frameless, shape-masked circle, Pillow-rendered) + `customtkinter` for dialogs (settings, first-run wizard, tone editor). PyQt6 is blocked by glibc 2.31 on Ubuntu 20.04 — when the dev machine upgrades to 22.04+, a PyQt6 rewrite remains the long-term direction, but the current customtkinter stack is the supported one.
 
-## Current state — Phase 6 complete
+## File map
 
 ```
 plume/
-├── pyproject.toml
-├── plume.spec          # PyInstaller spec for Windows exe
-├── installer.iss       # Inno Setup script for PlumeSetup.exe
-├── plume.ico           # App icon (multi-size: 16/24/32/48/64/128/256)
-├── .github/
-│   └── workflows/
-│       └── build-windows.yml  # CI: builds + publishes installer on v* tags
-├── plume/
-│   ├── __init__.py
-│   ├── __main__.py     # CLI: init / fix / run subcommands
-│   ├── app.py          # PlumeApp — bootstrap, wires everything
-│   ├── capture.py      # capture_selection() — simulates Ctrl+C, reads clipboard
-│   ├── clipboard.py    # get_clipboard() / set_clipboard() via pyperclip
-│   ├── config.py       # Config (Pydantic v2) + Mode enum + Tone model + load_config / save_config
-│   ├── fixer.py        # async fix_text(text, cfg, mode) -> str  (resolves tone for REWRITE_TONE)
-│   ├── gui_entry.py    # PyInstaller entry point — calls PlumeApp().run() directly
-│   ├── hotkey.py       # GlobalHotkeyListener (pynput)
-│   ├── notifier.py     # notify() — notify-send on Linux, plyer on Windows
-│   ├── prompts.py      # get_prompt(mode) + get_rewrite_prompt(tone_description)
-│   ├── replace.py      # replace_selection() — sets clipboard, simulates Ctrl+V
-│   ├── settings.py     # SettingsDialog + ToneEditor (tkinter Toplevels)
-│   ├── tray.py         # TrayIcon (pystray, optional — fails gracefully on GNOME)
-│   ├── widget.py       # FloatingWidget (tkinter, frameless, always-on-top)
-│   └── wizard.py       # FirstRunWizard (tkinter Toplevel, shown on first launch)
-└── tests/
-    ├── test_clipboard.py
-    ├── test_config.py
-    ├── test_fixer.py
-    ├── test_notifier.py
-    └── test_prompts.py
+├── plume.spec           # PyInstaller spec (includes customtkinter data files)
+├── installer.iss        # Inno Setup script for PlumeSetup.exe
+├── plume.ico            # App icon (multi-size: 16/24/32/48/64/128/256)
+├── .github/workflows/build-windows.yml  # CI on v* tags
+└── plume/
+    ├── __main__.py      # CLI: init / fix / run subcommands
+    ├── app.py           # PlumeApp — bootstrap, wires everything
+    ├── capture.py       # capture_selection()
+    ├── clipboard.py     # get/set via pyperclip
+    ├── config.py        # Config (Pydantic v2) + Mode enum + Tone model
+    ├── fixer.py         # async fix_text()
+    ├── gui_entry.py     # PyInstaller entry point
+    ├── hotkey.py        # GlobalHotkeyListener (pynput)
+    ├── notifier.py      # notify-send (Linux) / plyer (Windows)
+    ├── prompts.py       # get_prompt(mode) + get_rewrite_prompt(tone)
+    ├── replace.py       # replace_selection()
+    ├── theme.py         # color tokens, mode accents, font picker, spacing/radius scale
+    ├── ui.py            # shared customtkinter widget builders (button/entry/card/safe_alert)
+    ├── settings.py      # SettingsDialog + ToneEditor (CTkToplevel, OS chrome)
+    ├── tray.py          # TrayIcon — branded Pillow icon, P glyph + indigo ring
+    ├── widget.py        # FloatingWidget — Pillow-rendered idle/busy/success/error states
+    └── wizard.py        # FirstRunWizard — 3-step CTkToplevel with progress bar
 ```
 
 ## LLM endpoint
 
-- **Base URL**: `http://148.230.93.60:4000` (internal LiteLLM proxy, no VPN needed)
-- **Default model**: `ministral-3:8b-cloud` (confirmed working)
-- Large models (mistral 675B, deepseek 671B) require a subscription — avoid them
-- `gemini-3-flash-preview` is proprietary — avoid it
+- Base URL: `http://148.230.93.60:4000` (internal LiteLLM proxy)
+- Default model: `ministral-3:8b-cloud`
+- Avoid: large subscription-only models (mistral 675B, deepseek 671B), proprietary `gemini-3-flash-preview`
 
-## Config files (runtime, not in repo)
+## Config files (runtime)
 
 | File | Contents |
 |---|---|
 | `~/.config/plume/config.toml` (Linux) / `%LOCALAPPDATA%\plume\plume\config.toml` (Windows) | `api_base_url`, `model`, `hotkey`, `mode`, `widget_position`, `tones`, `active_tone` |
-| same dir / `.env` | `PLUME_API_KEY` only — never written to TOML |
+| same dir / `.env` | `PLUME_API_KEY` only |
 
 Paths via `platformdirs.user_config_dir("plume")`. `CONFIG_DIR` in `config.py` is monkeypatchable in tests.
 
 ## The 5 modes (config.py — Mode enum)
 
-| Mode value | Label | Color | Action |
+| Mode value | Label | Accent | Action |
 |---|---|---|---|
-| `fix_french` | FR | Indigo | Fix French spelling/accents/grammar |
-| `fix_english` | EN | Blue | Fix English spelling/grammar |
-| `translate_fr_en` | F›E | Amber | Translate French → English |
-| `translate_en_fr` | E›F | Purple | Translate English → French |
-| `rewrite_tone` | T~ | Teal | Rewrite in a user-defined French tone |
+| `fix_french` | FR | Indigo `#7C83FF` | Fix French spelling/accents/grammar |
+| `fix_english` | EN | Blue `#4C9DFF` | Fix English spelling/grammar |
+| `translate_fr_en` | F›E | Amber `#F5A524` | Translate French → English |
+| `translate_en_fr` | E›F | Purple `#B07CFF` | Translate English → French |
+| `rewrite_tone` | T | Teal `#2DD4BF` | Rewrite in a user-defined French tone |
 
-Right-clicking the widget opens a popup menu to switch mode. The chosen mode is saved to `config.toml` and persisted across restarts.
+All accents and tokens live in `theme.py`. Right-click the widget to switch mode; selection is persisted to `config.toml`.
 
 ### Rewrite-tone mode (`config.Tone`, `prompts.get_rewrite_prompt`)
 
-Users define their own tones (name + free-text description) in **Paramètres → Tons personnalisés**. The right-click menu has a **Réécrire en…** cascade listing them; selecting one sets `mode=REWRITE_TONE` and `active_tone=<name>`, both persisted.
+Users define tones (name + free-text description) in **Paramètres → Tons personnalisés**. The right-click cascade **Réécrire en…** sets `mode=REWRITE_TONE` and `active_tone=<name>`. Prompt template `_REWRITE_TONE_TEMPLATE` in `prompts.py` enforces dates/numbers verbatim (Rule 5), no vague→precise (Rule 5bis), preserves tu/vous register (Rule 8). If `active_tone` is missing/unknown, `fixer._system_prompt()` raises `FixerError`. Deleting the active tone from settings falls back to `FIX_FRENCH`.
 
-The prompt template (`_REWRITE_TONE_TEMPLATE` in `prompts.py`) bakes in strict fidelity rules including:
-- Rule 5: reproduce dates/numbers/durations verbatim (with concrete counter-example *"fin du mois prochain" ≠ "fin du mois"*).
-- Rule 5bis: never turn a vague expression into a precise one (*"depuis pas mal de temps" ≠ "depuis plusieurs mois"*).
-- Rule 8: preserve tu/vous register throughout.
+**Known limit**: transformative tones (commercial/marketing) tend to invent claims with small models. Settings shows an amber callout warning. Subtractive/register-shift tones (concis, diplomatique, formel) work well.
 
-If `active_tone` is missing or unknown when REWRITE_TONE fires, `fixer._system_prompt()` raises `FixerError`. If the user deletes the active tone from the settings dialog, `_save()` falls back to `FIX_FRENCH` so the widget remains usable.
+## App flow
 
-**Known limit**: transformative tones (commercial/marketing) tend to invent claims with small models like `ministral-3:8b-cloud`. The settings dialog shows an amber warning next to the tones list. Subtractive/register-shift tones (concis, diplomatique, formel) work well.
-
-## App flow (select → shortcut → done)
-
-1. User selects text in any app
+1. User selects text
 2. User presses `Ctrl+Alt+F`
-3. pynput intercepts the hotkey globally
-4. `capture.py` simulates Ctrl+C and reads the clipboard
-5. `fixer.py` picks the prompt for the active mode and sends text to LLM
-6. `replace.py` writes the result to clipboard and simulates Ctrl+V
-7. `notifier.py` shows a mode-specific desktop notification
+3. pynput intercepts hotkey
+4. `capture.py` simulates Ctrl+C, reads clipboard
+5. `fixer.py` picks prompt for active mode, calls LLM
+6. `replace.py` writes result and simulates Ctrl+V
+7. `notifier.py` shows mode-specific notification
 
 ## Response parsing (fixer.py)
 
-1. Strip whitespace
-2. Strip surrounding quotes (`"..."`, `'...'`, `"..."`)
-3. Strip preamble lines small models add (see `_strip_preamble()`)
-4. Strip markdown formatting the model may inject (`**bold**`, `*italic*`, `__x__`, `_x_`)
+Strip whitespace → strip surrounding quotes → strip preamble lines → strip markdown formatting (`**bold**`, `*italic*`, `__x__`, `_x_`).
 
-## First-run wizard (wizard.py)
+## UI architecture
 
-Triggered automatically when `config.toml` does not exist. Shows a 3-step tkinter `Toplevel`: Welcome → form (API URL, key, model) → Done. Calls `save_config()` on completion. If the user cancels, the app exits cleanly.
+**Floating widget** (`widget.py`): 52×52 frameless, Pillow-rendered at 4× and downsampled with LANCZOS. Idle = neutral fill + thin accent ring + bold label. Busy = bright rotating arc (900ms cycle). Success = emerald tint + check (1500ms hold). Error = red tint + `!` + 220ms shake (1500ms hold). PhotoImage held on instance so Tk doesn't GC it.
 
-## Settings dialog (settings.py)
+**Dialogs** (`settings.py`, `wizard.py`): customtkinter with `OS chrome`. We tried `overrideredirect(True)` + custom titlebar; it deadlocks keyboard input on Linux WMs. We dropped overrideredirect — OS titlebars look slightly different per platform but everything works. `grab_set()` is deferred 80ms via `after()` so the window is fully mapped first.
 
-Opened from the right-click popup menu on the widget (or tray menu when available). Fields: API URL, API key, model, hotkey, plus a **Tons personnalisés** section (Listbox + Ajouter/Modifier/Supprimer buttons; modal `ToneEditor` Toplevel with name + multi-line description, validates uniqueness). On save: writes config to disk and updates live `PlumeApp` state. If the hotkey changed, `GlobalHotkeyListener` is stopped and restarted immediately. If the active tone was removed, mode falls back to `FIX_FRENCH`. Height is auto-sized after build so it fits on all platforms.
+**Shared UI module** (`ui.py`): `primary_button`, `secondary_button`, `card_action_button`, `entry`, `field_label`, `helper`, `section_header`, `card`, and `safe_alert(win, title, msg)` which releases grab around messagebox calls to prevent the frameless-modal deadlock.
 
-## Widget interaction (widget.py)
+**Settings dialog**: 640×720, two cards (Connexion: URL/key/model/hotkey with model+hotkey in a 2-col grid · Tons personnalisés: header with inline +Ajouter/Modifier/Supprimer + CTkScrollableFrame list + amber callout). Footer reserved with `side="bottom"` BEFORE packing cards so it can't get squeezed out.
 
-- Left-click: trigger fix/translate/rewrite using the active mode
-- Right-click: open popup menu (4 base modes + **Réécrire en…** cascade of user tones + Paramètres + Fermer ✕ to quit)
-- Drag: reposition the widget anywhere on screen
-- Widget label and ring color reflect the active mode
-- States: idle → busy (pulsing ring) → success (emerald, 1.5 s) → idle
+**Wizard**: 580×520, 3 steps (Welcome → Form → Done), 3-segment progress bar at top (uniform-column grid). Form fields persist across Retour/Commencer navigation via `_draft_*` instance attrs. Done step shows a Pillow-rendered emerald success circle. API key field auto-focuses on form step.
+
+**Tone editor**: 520×440 with the same patterns. Name field auto-focuses on open.
+
+**Tray icon** (`tray.py`): branded Pillow icon — dark `SURFACE` circle, 2px indigo accent ring, white "P" glyph rendered with the first available bold TTF (DejaVu/Liberation/Ubuntu on Linux, Segoe UI/Arial on Windows), 4× render downsampled with LANCZOS.
+
+## Widget interaction
+
+- Left-click: trigger fix/translate/rewrite using active mode
+- Right-click: popup menu (4 base modes + **Réécrire en…** cascade + Paramètres + Fermer ✕)
+- Drag: reposition anywhere
+- States: idle → busy → success/error → idle
 
 ## Platform-specific behaviour
 
-### Linux
-- Circle mask via X11 Shape Extension (`_apply_circle_mask_x11`)
-- Notifications via `notify-send`
-- Clipboard via `pyperclip` + `xclip`
+**Linux**: circle mask via X11 Shape Extension. Notifications via `notify-send`. Clipboard via `pyperclip` + `xclip`. Tray needs `python3-gi` + AppIndicator extension to actually display; silently disabled otherwise (right-click on widget is the fallback).
 
-### Windows
-- Circle mask via `wm_attributes("-transparentcolor", BG)` (`_apply_circle_mask_windows`)
-- `WS_EX_NOACTIVATE` set on widget HWND so clicking it never steals focus from the source app
-- Notifications via `plyer` (Windows-only dep, platform marker in `pyproject.toml`); toast uses `plume.ico` resolved via `sys._MEIPASS`
-- Clipboard via `pyperclip` (works natively)
+**Windows**: circle mask via `wm_attributes("-transparentcolor", BG)`. `WS_EX_NOACTIVATE` on widget HWND so clicks never steal focus. Notifications via `plyer` (Windows-only dep, platform marker in `pyproject.toml`); toast uses `plume.ico` via `sys._MEIPASS`. Clipboard via `pyperclip` natively. Tray uses Win32 systray API — reliable.
 
 ## Windows installer
 
-Triggered by pushing a `v*` tag. GitHub Actions (`build-windows.yml`) runs on `windows-latest`:
+Triggered by pushing a `v*` tag. `.github/workflows/build-windows.yml` runs on `windows-latest`:
 1. `uv sync` + `uv pip install pyinstaller`
-2. `pyinstaller plume.spec` → `dist/plume/` (onedir, no console; `plume.ico` bundled and embedded in the exe)
-3. Inno Setup `installer.iss` → `Output/PlumeSetup.exe` (uses `plume.ico` via `SetupIconFile`)
-4. Published as a GitHub Release asset
+2. `pyinstaller plume.spec` → `dist/plume/` (onedir, no console)
+3. Inno Setup `installer.iss` → `Output/PlumeSetup.exe`
+4. Published as GitHub Release asset
 
-The installer: no admin rights needed, installs to `%ProgramFiles%\Plume`, adds startup registry entry (`HKCU\...\Run`), includes uninstaller.
+`plume.spec` uses `collect_data_files("customtkinter")` to bundle its theme JSON files — without that, the .exe crashes on first dialog open. Installer needs no admin, installs to `%ProgramFiles%\Plume`, adds startup registry entry, includes uninstaller.
 
-To release:
-```bash
-git tag v0.x.0
-git push origin v0.x.0
-```
+To release: `git tag v0.x.0 && git push origin v0.x.0`.
 
 ## Running the app (dev)
 
 ```bash
 source "$HOME/snap/code/237/.local/share/../bin/env"
-uv run plume run        # starts widget + tray + hotkey listener
+uv run plume run        # widget + tray + hotkey listener
 uv run plume fix        # clipboard mode
 uv run plume fix "text" # positional
 ```
@@ -163,29 +140,34 @@ uv run plume fix "text" # positional
 - `from __future__ import annotations` everywhere
 - Full type hints, `mypy --strict` clean (with `pydantic.mypy` plugin)
 - `ruff` lint + format: line length 100, select `E,F,I,UP,B`
-- `plume/prompts.py` has `E501` ignored
+- `plume/prompts.py` ignores `E501`
+- `customtkinter` has no type stubs — `mypy` override in `pyproject.toml`
 - No hardcoded `~/.config` strings — always use `platformdirs`
 - Async only for the LLM call; tkinter UI updates via `root.after()` from threads
 
 ## Error handling
 
 - `ConfigError` — missing config
-- `FixerError` — LLM timeout / HTTP errors
+- `FixerError` — LLM timeout / HTTP errors / missing active tone
 - `ClipboardError` — xclip missing or clipboard empty
-- Runtime errors shown as desktop notifications
+- Runtime errors → desktop notification + widget red error state with shake
 
 ## Known gotchas
 
-- PyQt6 blocked by glibc 2.31 on Ubuntu 20.04 — see GUI branch note above
-- tkinter must be available on Linux: `sudo apt-get install python3-tk`
-- pystray tray icon on GNOME requires AppIndicator extension + PyGObject — tray is silently disabled if unavailable; settings accessible via right-click on widget instead
+- **Snap-confined Tk** (e.g. VSCode snap terminal) only sees 30 legacy X11 bitmap fonts. `theme.ui_family()` is case-insensitive and falls back to `Helvetica` (X11 alias resolved via fontconfig). Production install is unaffected.
+- **customtkinter `show=""` vs `show="•"`**: U+2022 misbehaves on some Tk builds — masked entries use `show="*"`.
+- **CTkEntry click focus**: on Linux, clicking the wrapper doesn't always focus the inner tk.Entry. Both dialogs explicitly bind `<Button-1>` → `focus_set()` on each entry.
+- **overrideredirect + grab_set deadlock**: combining the two on Linux WMs freezes keyboard input. We use OS chrome on all dialogs and defer `grab_set()` until after `wait_visibility()` / via `after(80, ...)`.
+- **safe_alert grab juggling**: `messagebox.showerror` from inside a `grab_set` window can deadlock — `ui.safe_alert()` releases the grab around the messagebox and reacquires after.
+- **PhotoImage GC**: Pillow images blitted onto a Canvas must be held on `self._tk_image` or Tk garbage-collects them and they disappear.
+- **pystray on GNOME**: needs `python3-gi` + AppIndicator extension. Without them, pystray falls back to XEmbed which GNOME ignored years ago. Silently disabled — right-click widget menu is the fallback.
+- **PyInstaller + customtkinter**: spec must include `collect_data_files("customtkinter")` and `darkdetect` as hidden import or the .exe fails at first dialog open.
 - xclip required on Linux: `sudo apt-get install xclip`
 - pynput GlobalHotKeys runs in a thread — UI updates must go through `root.after()`
 - `asyncio_mode = "auto"` in pytest — no `@pytest.mark.asyncio` needed
-- Root `Tk` window is withdrawn at startup and shown only after FloatingWidget is fully configured — avoids the "tk" title bar flash
-- Some LLM models inject markdown formatting into their output — `_strip_markdown()` in `fixer.py` removes it
-- On Linux X11, override-redirect + shape-masked widgets leave "ghosts" if destroyed abruptly. `PlumeApp._shutdown()` withdraws + `update()`s 3× before `destroy()` to force the compositor to repaint
-- Ctrl+C / Ctrl+Z from the terminal are wired to clean shutdowns: SIGINT → `quit()`, SIGTSTP → withdraw + raise SIGSTOP (Linux only; SIGCONT re-shows the widget). Signal handlers only run between Tk mainloop iterations, so `_signal_pulse` schedules a 200 ms heartbeat to keep them responsive
+- Root `Tk` window is withdrawn at startup, shown only after FloatingWidget is fully configured — avoids the "tk" title bar flash
+- On Linux X11, override-redirect + shape-masked widgets leave "ghosts" if destroyed abruptly. `PlumeApp._shutdown()` withdraws + `update()`s 3× before `destroy()`
+- Ctrl+C / Ctrl+Z from terminal: SIGINT → `quit()`, SIGTSTP → withdraw + raise SIGSTOP (Linux only). `_signal_pulse` runs a 200 ms heartbeat so signals run between mainloop iterations
 
 ## Running the checks
 
@@ -197,18 +179,8 @@ uv run ruff format --check plume tests
 uv run mypy plume
 ```
 
-## Phased delivery
-
-**Phase 1 — CLI only.** ✅ Done.
-**Phase 2 — Clipboard mode.** ✅ Done.
-**Phase 3 — tkinter widget + tray + hotkey listener.** ✅ Done.
-**Phase 4 — Settings dialog + first-run wizard.** ✅ Done.
-**Phase 4b — 4 modes (fix FR/EN, translate FR↔EN).** ✅ Done.
-**Phase 5 — Cross-platform support (Linux + Windows).** ✅ Done.
-**Phase 6 — 5th mode: rewrite-in-custom-tone (user-defined tones).** ✅ Done.
-
 ## Hard constraints
 
-- OS target: Linux + Windows.
-- GUI: tkinter for now; PyQt6 on Ubuntu 22.04+
-- No telemetry, no cloud sync, no analytics.
+- OS target: Linux + Windows
+- GUI: tkinter + customtkinter (PyQt6 deferred until Ubuntu 22.04+)
+- No telemetry, no cloud sync, no analytics

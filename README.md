@@ -54,7 +54,7 @@ Clic droit sur le bouton pour changer de mode. Le mode est mémorisé entre les 
 | Corriger l'anglais | EN | Bleu |
 | Traduire FR → EN | F›E | Ambré |
 | Traduire EN → FR | E›F | Violet |
-| Réécrire dans un ton personnalisé | T~ | Sarcelle |
+| Réécrire dans un ton personnalisé | T | Sarcelle |
 
 ### Réécrire dans un ton
 
@@ -78,7 +78,8 @@ uv run plume fix   # lit le presse-papiers
 
 - Transport LLM : `httpx` → endpoint OpenAI-compatible (LiteLLM)
 - Config : Pydantic v2 · TOML · secrets dans `.env`
-- GUI : `tkinter` (cercle via X11 Shape sur Linux, `-transparentcolor` sur Windows)
+- Widget flottant : `tkinter` + rendu Pillow (antialiasé, cercle via X11 Shape sur Linux et `-transparentcolor` sur Windows)
+- Dialogues : `customtkinter` (paramètres, assistant, éditeur de ton)
 - Hotkey global : `pynput`
 - Presse-papiers : `pyperclip`
 - Notifications : `notify-send` (Linux) · `plyer` (Windows)
@@ -119,6 +120,7 @@ GitHub Actions construit automatiquement `PlumeSetup.exe` et le publie dans les 
 - [x] Phase 4b — 4 modes (corriger FR/EN, traduire FR↔EN)
 - [x] Phase 5 — Support multiplateforme (Linux + Windows) + installeur Windows
 - [x] Phase 6 — 5ᵉ mode : réécriture dans un ton personnalisé (liste éditable de tons)
+- [x] Phase 7 — Redesign UI : widget rendu via Pillow (états idle/busy/success/error animés), dialogues `customtkinter`, icône de tray brandée, module thème centralisé
 
 ---
 

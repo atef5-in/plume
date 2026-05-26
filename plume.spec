@@ -1,10 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_data_files
+
+# customtkinter ships JSON theme files + asset PNGs that PyInstaller does not
+# pick up automatically — without this, the .exe crashes on first dialog open.
+ctk_datas = collect_data_files("customtkinter")
 
 a = Analysis(
     ["plume/gui_entry.py"],
     pathex=["."],
     binaries=[],
-    datas=[("plume.ico", ".")],
+    datas=[("plume.ico", ".")] + ctk_datas,
     hiddenimports=[
         "pynput.keyboard._win32",
         "pynput.mouse._win32",
@@ -13,6 +18,8 @@ a = Analysis(
         "PIL._tkinter_finder",
         "tkinter",
         "tkinter.messagebox",
+        "customtkinter",
+        "darkdetect",  # customtkinter dependency for system theme detection
     ],
     hookspath=[],
     hooksconfig={},

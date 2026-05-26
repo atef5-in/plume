@@ -13,6 +13,7 @@ dependencies = [
     "pystray>=0.19.5",
     "pillow>=12.2.0",
     "plyer>=2.1.0; sys_platform == 'win32'",
+    "customtkinter>=5.2.2",
 ]
 
 [project.optional-dependencies]
@@ -59,6 +60,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "plyer"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "customtkinter"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -220,9 +220,9 @@ class PlumeApp:
 
         except FixerError as exc:
             notify("Plume — Erreur", str(exc), "critical")
-            self._root.after(0, self._widget.set_idle)
+            self._root.after(0, self._widget.set_error)
         except Exception as exc:
             notify("Plume — Erreur inattendue", str(exc), "critical")
-            self._root.after(0, self._widget.set_idle)
+            self._root.after(0, self._widget.set_error)
         finally:
             self._busy = False

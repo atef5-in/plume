@@ -4,21 +4,64 @@ import threading
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
+
+from plume import theme
 
 if TYPE_CHECKING:
     import pystray as _pystray
 
 _ICON_SIZE = 64
-_COLOR = (74, 144, 226, 255)
+_RENDER_SCALE = 4
+
+
+def _hex_to_rgba(h: str, alpha: int = 255) -> tuple[int, int, int, int]:
+    h = h.lstrip("#")
+    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), alpha)
+
+
+def _load_glyph_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    """Find any installed bold/regular TTF; fall back to PIL's default bitmap."""
+    for path in (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",
+        "C:/Windows/Fonts/segoeuib.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
+    ):
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
 
 
 def _make_icon() -> Image.Image:
-    img = Image.new("RGBA", (_ICON_SIZE, _ICON_SIZE), (0, 0, 0, 0))
+    """Branded tray icon: dark circle, indigo accent ring, white 'P' glyph.
+    Rendered at 4× and downsampled with LANCZOS for crisp antialiased edges."""
+    s = _ICON_SIZE * _RENDER_SCALE
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    pad = 4
-    draw.ellipse([pad, pad, _ICON_SIZE - pad, _ICON_SIZE - pad], fill=_COLOR)
-    return img
+
+    margin = 4 * _RENDER_SCALE
+    ring_w = 2 * _RENDER_SCALE
+    box = (margin, margin, s - margin, s - margin)
+    draw.ellipse(
+        box,
+        fill=_hex_to_rgba(theme.SURFACE),
+        outline=_hex_to_rgba(theme.BTN_PRIMARY_BG),
+        width=int(ring_w),
+    )
+
+    font = _load_glyph_font(int(s * 0.55))
+    glyph = "P"
+    bbox = draw.textbbox((0, 0), glyph, font=font)
+    gw, gh = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    x = (s - gw) // 2 - bbox[0]
+    y = (s - gh) // 2 - bbox[1] - int(s * 0.02)  # nudge up for visual centering
+    draw.text((x, y), glyph, fill=_hex_to_rgba(theme.TEXT_PRIMARY), font=font)
+
+    return img.resize((_ICON_SIZE, _ICON_SIZE), Image.Resampling.LANCZOS)
 
 
 class TrayIcon:
