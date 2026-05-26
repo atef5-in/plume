@@ -83,6 +83,12 @@ class SettingsDialog:
 
         self._build()
         _center(self._win, _WIDTH, _HEIGHT)
+        # On Windows the dialog opens without foreground activation (parent
+        # widget HWND has WS_EX_NOACTIVATE), so the first click on any button
+        # only activates the window. Force focus so clicks fire immediately.
+        self._win.deiconify()
+        self._win.lift()
+        self._win.after(50, self._win.focus_force)
         self._win.after(80, self._win.grab_set)
 
     def _build(self) -> None:
@@ -411,6 +417,12 @@ class ToneEditor:
 
         self._build(title)
         _center(self._win, _TONE_EDITOR_WIDTH, _TONE_EDITOR_HEIGHT)
+        # On Windows the dialog opens without foreground activation (parent
+        # widget HWND has WS_EX_NOACTIVATE), so the first click on any button
+        # only activates the window. Force focus so clicks fire immediately.
+        self._win.deiconify()
+        self._win.lift()
+        self._win.after(50, self._win.focus_force)
         self._win.after(80, self._win.grab_set)
 
     def _build(self, title: str) -> None:
