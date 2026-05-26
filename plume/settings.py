@@ -184,7 +184,10 @@ class SettingsDialog:
         self._tones_scrollable = len(self._tones) > _TONES_SCROLL_THRESHOLD
         self._tones_container = self._make_tones_container(parent, self._tones_scrollable)
         self._tones_container.pack(fill="x")
-        self._tones_container.pack_propagate(False)
+        # pack_propagate(False) breaks CTkScrollableFrame's inner canvas
+        # geometry — only lock the size on the plain Frame variant.
+        if not self._tones_scrollable:
+            self._tones_container.pack_propagate(False)
         self._refresh_tones_list()
 
     def _make_tones_container(self, parent: ctk.CTkBaseClass, scrollable: bool) -> ctk.CTkBaseClass:
@@ -219,7 +222,8 @@ class SettingsDialog:
                 self._tones_list_parent, needs_scroll
             )
             self._tones_container.pack(fill="x")
-            self._tones_container.pack_propagate(False)
+            if not needs_scroll:
+                self._tones_container.pack_propagate(False)
 
         for row in self._tone_row_frames:
             row.destroy()

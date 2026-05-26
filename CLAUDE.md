@@ -160,6 +160,7 @@ uv run plume fix "text" # positional
 - **overrideredirect + grab_set deadlock**: combining the two on Linux WMs freezes keyboard input. We use OS chrome on all dialogs and defer `grab_set()` until after `wait_visibility()` / via `after(80, ...)`.
 - **safe_alert grab juggling**: `messagebox.showerror` from inside a `grab_set` window can deadlock — `ui.safe_alert()` releases the grab around the messagebox and reacquires after.
 - **PhotoImage GC**: Pillow images blitted onto a Canvas must be held on `self._tk_image` or Tk garbage-collects them and they disappear.
+- **`pack_propagate(False)` on `CTkScrollableFrame`**: breaks the inner canvas geometry and child widgets never render. Only apply it to plain `CTkFrame` variants — the scrollable one manages its own size.
 - **pystray on GNOME**: needs `python3-gi` + AppIndicator extension. Without them, pystray falls back to XEmbed which GNOME ignored years ago. Silently disabled — right-click widget menu is the fallback.
 - **PyInstaller + customtkinter**: spec must include `collect_data_files("customtkinter")` and `darkdetect` as hidden import or the .exe fails at first dialog open.
 - xclip required on Linux: `sudo apt-get install xclip`
