@@ -116,9 +116,16 @@ def load_config() -> Config:
             raw.setdefault(field, val)
 
     try:
-        return Config.model_validate(raw)
+        cfg = Config.model_validate(raw)
     except ValidationError as exc:
         raise ConfigError(f"Invalid or missing config: {exc}") from exc
+
+    # Backfill default tones for installs that predate seeding (v0.5.1 and earlier).
+    if not cfg.tones:
+        cfg.tones = [t.model_copy() for t in DEFAULT_TONES]
+        save_config(cfg)
+
+    return cfg
 
 
 def save_config(cfg: Config) -> None:
