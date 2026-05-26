@@ -279,7 +279,27 @@ class FloatingWidget:
             self._root.wm_attributes("-transparentcolor", BG)
         except Exception:
             pass
+        self._apply_window_region_windows()
         self._apply_noactivate_windows()
+
+    def _apply_window_region_windows(self) -> None:
+        """Hard-clip the visible area to a circle. -transparentcolor alone
+        leaves a dark halo because Pillow's antialiased ring blends toward
+        the key color but doesn't hit it exactly. A window region clips
+        those edge pixels just like the X11 shape mask does on Linux."""
+        try:
+            import ctypes
+
+            windll = getattr(ctypes, "windll", None)
+            if windll is None:
+                return
+            hwnd = windll.user32.GetParent(self._root.winfo_id())
+            if not hwnd:
+                hwnd = self._root.winfo_id()
+            rgn = windll.gdi32.CreateEllipticRgn(0, 0, SIZE, SIZE)
+            windll.user32.SetWindowRgn(hwnd, rgn, True)
+        except Exception:
+            pass
 
     def _apply_noactivate_windows(self) -> None:
         try:

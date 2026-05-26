@@ -32,6 +32,52 @@ class Tone(BaseModel):
     description: str
 
 
+# Seeded into a fresh install so the user immediately has working tones.
+# Editable/deletable through the settings dialog like any user-defined tone.
+DEFAULT_TONES: list[Tone] = [
+    Tone(
+        name="Plus formel",
+        description=(
+            "Réécris le texte dans un registre plus formel et soutenu. "
+            "Garde exactement le même sens, ne change aucun fait, "
+            "préserve les dates, chiffres et noms à l'identique."
+        ),
+    ),
+    Tone(
+        name="Plus court",
+        description=(
+            "Réécris en formulations plus courtes et économes. "
+            "Garde toutes les informations du texte original — "
+            "aucune ne doit disparaître. Ne change pas le sens."
+        ),
+    ),
+    Tone(
+        name="Plus long",
+        description=(
+            "Développe le texte avec un peu plus de détails et de précision "
+            "à partir de ce qui est déjà présent. N'invente aucune information "
+            "qui ne soit pas dans le texte d'origine."
+        ),
+    ),
+    Tone(
+        name="Plus direct",
+        description=(
+            "Réécris de façon plus directe et concrète, en allant droit à "
+            "l'essentiel. Supprime les formules de politesse superflues "
+            "mais garde tous les faits, dates et chiffres."
+        ),
+    ),
+    Tone(
+        name="Amical",
+        description=(
+            "Réécris dans un ton plus chaleureux et amical, en tutoyant "
+            "si le texte d'origine tutoyait, en vouvoyant sinon. "
+            "Garde le sens et toutes les informations."
+        ),
+    ),
+]
+
+
 class Config(BaseModel):
     api_base_url: str
     api_key: SecretStr

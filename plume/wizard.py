@@ -6,7 +6,7 @@ import customtkinter as ctk
 from PIL import Image, ImageDraw, ImageTk
 
 from plume import theme, ui
-from plume.config import Config, save_config
+from plume.config import DEFAULT_TONES, Config, save_config
 
 _WIDTH = 580
 _HEIGHT = 520
@@ -257,7 +257,12 @@ class FirstRunWizard:
             return
 
         try:
-            cfg = Config(api_base_url=url, api_key=key, model=model)
+            cfg = Config(
+                api_base_url=url,
+                api_key=key,
+                model=model,
+                tones=[t.model_copy() for t in DEFAULT_TONES],
+            )
             save_config(cfg)
             self._result = cfg
         except Exception as exc:
