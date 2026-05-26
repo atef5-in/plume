@@ -33,7 +33,13 @@ jobs:
 
       - name: Build installer
         shell: pwsh
-        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss'
+        run: |
+          $version = if ($env:GITHUB_REF -like "refs/tags/v*") {
+            $env:GITHUB_REF -replace "^refs/tags/v", ""
+          } else {
+            "0.0.0-dev"
+          }
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" installer.iss
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

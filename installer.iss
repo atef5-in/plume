@@ -1,6 +1,10 @@
+#ifndef AppVersion
+  #define AppVersion "0.0.0-dev"
+#endif
+
 [Setup]
 AppName=Plume
-AppVersion=0.1.0
+AppVersion={#AppVersion}
 AppPublisher=atef5-in
 AppPublisherURL=https://github.com/atef5-in/Plume
 DefaultDirName={autopf}\Plume

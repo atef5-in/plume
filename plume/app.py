@@ -176,10 +176,13 @@ class PlumeApp:
         menu.add_separator()
         menu.add_command(label="Paramètres", command=self._open_settings)
         menu.add_command(label="Fermer ✕", command=self.quit)
-        try:
-            menu.tk_popup(x, y)
-        finally:
-            menu.grab_release()
+        # Auto-dismiss when the user clicks outside. The widget HWND has
+        # WS_EX_NOACTIVATE on Windows, so the menu never naturally gets focus
+        # and Tk's default click-outside-to-close path never fires. Binding
+        # FocusOut to unpost is the reliable cross-platform fallback.
+        menu.bind("<FocusOut>", lambda _e: menu.unpost())
+        menu.tk_popup(x, y)
+        menu.focus_set()
 
     def _set_mode(self, mode: Mode) -> None:
         self._cfg = self._cfg.model_copy(update={"mode": mode})
