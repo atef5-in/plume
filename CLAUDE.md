@@ -67,7 +67,7 @@ All accents and tokens live in `theme.py`. Right-click the widget to switch mode
 
 ### Rewrite-tone mode (`config.Tone`, `prompts.get_rewrite_prompt`)
 
-Users define tones (name + free-text description) in **Paramètres → Tons personnalisés**. The right-click cascade **Réécrire en…** sets `mode=REWRITE_TONE` and `active_tone=<name>`. Prompt template `_REWRITE_TONE_TEMPLATE` in `prompts.py` enforces dates/numbers verbatim (Rule 5), no vague→precise (Rule 5bis), preserves tu/vous register (Rule 8). If `active_tone` is missing/unknown, `fixer._system_prompt()` raises `FixerError`. Deleting the active tone from settings falls back to `FIX_FRENCH`.
+Users define tones (name + free-text description) in **Paramètres → Tons personnalisés**. Fresh installs and upgraded installs without tones are seeded with 5 defaults (`config.DEFAULT_TONES`): *Plus formel, Plus court, Plus long, Plus direct, Amical* — seeded by the first-run wizard, and backfilled by `load_config()` for configs that predate seeding. The right-click cascade **Réécrire en…** sets `mode=REWRITE_TONE` and `active_tone=<name>`. Prompt template `_REWRITE_TONE_TEMPLATE` in `prompts.py` enforces dates/numbers verbatim (Rule 5), no vague→precise (Rule 5bis), preserves tu/vous register (Rule 8). If `active_tone` is missing/unknown, `fixer._system_prompt()` raises `FixerError`. Deleting the active tone from settings falls back to `FIX_FRENCH`.
 
 **Known limit**: transformative tones (commercial/marketing) tend to invent claims with small models. Settings shows an amber callout warning. Subtractive/register-shift tones (concis, diplomatique, formel) work well.
 
