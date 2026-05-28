@@ -1,8 +1,10 @@
-# Plume — Correcteur et traducteur de texte
+# Plume — Correcteur et traducteur de texte (édition Sigma Telecoms)
 
 Outil bureau pour Linux et Windows qui corrige et traduit du texte dans n'importe quelle application via un raccourci clavier global et un bouton flottant toujours visible.
 
 Le contrat est strict : **corriger uniquement ; ne jamais changer le sens, ne jamais ajouter ni supprimer d'information.**
+
+> **Édition Sigma** — Cette branche (`client/sigma`) embarque l'URL, la clé API et le modèle au moment de la compilation. Aucune configuration LLM côté utilisateur : l'installateur est prêt à l'emploi.
 
 ---
 
@@ -10,7 +12,7 @@ Le contrat est strict : **corriger uniquement ; ne jamais changer le sens, ne ja
 
 ### Windows (recommandé)
 
-Télécharger `PlumeSetup.exe` depuis la page [Releases](https://github.com/atef5-in/Plume/releases), double-cliquer et suivre l'assistant. Plume démarre automatiquement à chaque connexion.
+Télécharger `PlumeSetup-Sigma.exe` depuis la page [Releases](https://github.com/atef5-in/Plume/releases), double-cliquer et suivre l'assistant. Plume démarre automatiquement à chaque connexion.
 
 ### Linux (depuis les sources)
 
@@ -18,8 +20,13 @@ Télécharger `PlumeSetup.exe` depuis la page [Releases](https://github.com/atef
 # Prérequis
 sudo apt install xclip python3-tk
 
-git clone https://github.com/atef5-in/Plume.git
+git clone -b client/sigma https://github.com/atef5-in/Plume.git
 cd Plume
+
+# Renseigner les secrets Sigma (non versionnés)
+cp plume/sigma_secrets.env.example plume/sigma_secrets.env
+$EDITOR plume/sigma_secrets.env
+
 uv sync
 uv run plume run
 ```
@@ -30,9 +37,9 @@ Pour démarrer automatiquement au login : ajouter `uv run plume run` aux Applica
 
 ## Configuration initiale
 
-Au premier lancement, un assistant de configuration s'ouvre automatiquement : URL de l'API, clé, modèle. La clé est stockée dans le répertoire de config utilisateur, jamais en clair dans le TOML.
+Au premier lancement, un court assistant en 2 étapes s'ouvre (Bienvenue → C'est prêt). L'URL, la clé et le modèle étant pré-configurés dans cette édition Sigma, aucune saisie n'est demandée.
 
-Pour modifier la configuration : clic droit sur le bouton flottant → **Paramètres**. Les changements (y compris le raccourci clavier) prennent effet immédiatement. Pour quitter l'application : clic droit → **Fermer ✕**.
+Pour modifier le raccourci clavier ou les tons de réécriture : clic droit sur le bouton flottant → **Paramètres**. Les changements prennent effet immédiatement. Pour quitter : clic droit → **Fermer ✕**.
 
 ---
 
@@ -85,19 +92,21 @@ uv run plume fix   # lit le presse-papiers
 - Notifications : `notify-send` (Linux) · `plyer` (Windows)
 - Chemins : `platformdirs`
 - Lint / types : `ruff` + `mypy --strict`
-- Tests : `pytest` + `pytest-httpx` (32 tests)
-- Installeur Windows : PyInstaller + Inno Setup + GitHub Actions
+- Tests : `pytest` + `pytest-httpx` (33 tests)
+- Installeur Windows : PyInstaller + Inno Setup + GitHub Actions (workflow Sigma dédié)
 
 ---
 
 ## Publier une nouvelle version
 
+Les secrets `SIGMA_API_BASE_URL`, `SIGMA_API_KEY`, `SIGMA_MODEL` doivent être configurés dans **Settings → Secrets and variables → Actions** sur le dépôt GitHub.
+
 ```bash
-git tag v0.x.0
-git push origin v0.x.0
+git tag sigma-v0.x.0
+git push origin sigma-v0.x.0
 ```
 
-GitHub Actions construit automatiquement `PlumeSetup.exe` et le publie dans les Releases.
+GitHub Actions exécute `build-windows-sigma.yml` : il écrit `plume/sigma_secrets.env` à partir des secrets du dépôt, construit `PlumeSetup-Sigma.exe` et le publie dans les Releases.
 
 ---
 
@@ -105,9 +114,11 @@ GitHub Actions construit automatiquement `PlumeSetup.exe` et le publie dans les 
 
 | Fichier | Contenu |
 |---|---|
-| Linux : `~/.config/plume/config.toml` | `api_base_url`, `model`, `hotkey`, `mode`, `widget_position`, `tones`, `active_tone` |
+| Linux : `~/.config/plume/config.toml` | `hotkey`, `mode`, `widget_position`, `tones`, `active_tone` |
 | Windows : `%LOCALAPPDATA%\plume\plume\config.toml` | idem |
-| `.env` (même dossier) | `PLUME_API_KEY` uniquement |
+| `plume/sigma_secrets.env` (embarqué dans le build) | `SIGMA_API_BASE_URL`, `SIGMA_API_KEY`, `SIGMA_MODEL` |
+
+L'URL, la clé et le modèle sont verrouillés au moment de la compilation : ni le TOML de l'utilisateur, ni un éventuel `.env` côté utilisateur ne peuvent les modifier.
 
 ---
 
@@ -121,6 +132,7 @@ GitHub Actions construit automatiquement `PlumeSetup.exe` et le publie dans les 
 - [x] Phase 5 — Support multiplateforme (Linux + Windows) + installeur Windows
 - [x] Phase 6 — 5ᵉ mode : réécriture dans un ton personnalisé (liste éditable de tons)
 - [x] Phase 7 — Redesign UI : widget rendu via Pillow (états idle/busy/success/error animés), dialogues `customtkinter`, icône de tray brandée, module thème centralisé
+- [x] Phase 8 (Sigma) — Build client verrouillé : secrets embarqués, paramètres réduits (raccourci + tons), assistant simplifié, workflow CI séparé
 
 ---
 

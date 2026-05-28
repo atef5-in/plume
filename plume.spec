@@ -9,7 +9,12 @@ a = Analysis(
     ["plume/gui_entry.py"],
     pathex=["."],
     binaries=[],
-    datas=[("plume.ico", ".")] + ctk_datas,
+    datas=[
+        ("plume.ico", "."),
+        # Sigma build: bundle the secrets file into plume/ inside the
+        # frozen app. config._sigma_secrets_path() resolves it via _MEIPASS.
+        ("plume/sigma_secrets.env", "plume"),
+    ] + ctk_datas,
     hiddenimports=[
         "pynput.keyboard._win32",
         "pynput.mouse._win32",

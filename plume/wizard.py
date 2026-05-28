@@ -6,13 +6,18 @@ import customtkinter as ctk
 from PIL import Image, ImageDraw, ImageTk
 
 from plume import theme, ui
-from plume.config import DEFAULT_TONES, Config, save_config
+from plume.config import (
+    DEFAULT_TONES,
+    Config,
+    _load_sigma_secrets,
+    save_config,
+)
 
 _WIDTH = 580
 _HEIGHT = 520
 _PAD = theme.SP_24
 _CARD_PAD = 20
-_TOTAL_STEPS = 3
+_TOTAL_STEPS = 2
 
 ctk.set_appearance_mode("dark")
 
@@ -42,11 +47,6 @@ class FirstRunWizard:
         self._result: Config | None = None
         self._step = 0
         self._success_icon: ImageTk.PhotoImage | None = None
-
-        # Persistent draft values so navigating Retour/Commencer doesn't wipe input.
-        self._draft_url = "http://148.230.93.60:4000"
-        self._draft_key = ""
-        self._draft_model = "ministral-3:8b-cloud"
 
         self._win = ctk.CTkToplevel(root)
         self._win.title("Plume — Configuration initiale")
@@ -96,13 +96,6 @@ class FirstRunWizard:
             else:
                 seg.configure(fg_color=theme.BORDER_STRONG)
 
-    def _capture_form_draft(self) -> None:
-        """Read current step-2 form values into draft state, if visible."""
-        if hasattr(self, "_e_url") and self._e_url.winfo_exists():
-            self._draft_url = self._e_url.get()
-            self._draft_key = self._e_key.get()
-            self._draft_model = self._e_model.get()
-
     def _clear_content(self) -> None:
         for w in self._content.winfo_children():
             w.destroy()
@@ -110,7 +103,7 @@ class FirstRunWizard:
     def _show_step(self) -> None:
         self._update_progress()
         self._clear_content()
-        [self._show_welcome, self._show_form, self._show_done][self._step]()
+        [self._show_welcome, self._show_done][self._step]()
 
     def _heading(self, parent: ctk.CTkBaseClass, text: str) -> None:
         ctk.CTkLabel(
@@ -137,9 +130,9 @@ class FirstRunWizard:
 
         for i, line in enumerate(
             (
-                "Connecter Plume à votre modèle d'IA",
                 "Sélectionner du texte dans n'importe quelle application",
-                "Appuyer sur Ctrl + Alt + F pour le corriger",
+                "Appuyer sur Ctrl + Alt + F pour le corriger ou le traduire",
+                "Clic droit sur la pastille pour changer de mode",
             )
         ):
             row = ctk.CTkFrame(inner, fg_color="transparent")
@@ -163,35 +156,7 @@ class FirstRunWizard:
         bar = ctk.CTkFrame(self._content, fg_color="transparent")
         bar.pack(side="bottom", fill="x", pady=(theme.SP_16, 0))
         ui.secondary_button(bar, "Quitter", self._on_cancel).pack(side="left")
-        ui.primary_button(bar, "Commencer", self._next).pack(side="right")
-
-    def _show_form(self) -> None:
-        card = ui.card(self._content)
-        card.pack(fill="both", expand=True)
-        inner = ctk.CTkFrame(card, fg_color="transparent")
-        inner.pack(fill="both", expand=True, padx=_CARD_PAD, pady=_CARD_PAD)
-
-        self._heading(inner, "Connexion à l'IA")
-        ui.helper(
-            inner,
-            "Adresse et clé du modèle utilisé pour les corrections et traductions.",
-            wraplength=_WIDTH - 2 * _PAD - 2 * _CARD_PAD,
-        ).pack(anchor="w", fill="x", pady=(theme.SP_8, theme.SP_16))
-
-        self._e_url = self._field(inner, "URL de base de l'API", self._draft_url)
-        self._e_key = self._field(inner, "Clé API", self._draft_key, show="*")
-        self._e_model = self._field(inner, "Modèle", self._draft_model)
-        # Force keyboard focus to follow clicks — CTkEntry inside a frameless
-        # grab_set window doesn't always grab focus on click on Linux WMs.
-        for e in (self._e_url, self._e_key, self._e_model):
-            e.bind("<Button-1>", lambda _ev, w=e: w.focus_set())
-
-        bar = ctk.CTkFrame(self._content, fg_color="transparent")
-        bar.pack(side="bottom", fill="x", pady=(theme.SP_16, 0))
-        ui.secondary_button(bar, "Retour", self._prev).pack(side="left")
-        ui.primary_button(bar, "Enregistrer", self._save_form).pack(side="right")
-
-        self._win.after(80, self._e_url.focus_set)
+        ui.primary_button(bar, "Commencer", self._begin).pack(side="right")
 
     def _show_done(self) -> None:
         card = ui.card(self._content)
@@ -223,40 +188,12 @@ class FirstRunWizard:
         bar.pack(side="bottom", fill="x", pady=(theme.SP_16, 0))
         ui.primary_button(bar, "Lancer Plume", self._finish, width=160).pack(side="right")
 
-    def _field(
-        self, parent: ctk.CTkBaseClass, label: str, default: str = "", show: str = ""
-    ) -> ctk.CTkEntry:
-        ui.field_label(parent, label).pack(anchor="w", pady=(0, theme.SP_4), fill="x")
-        e = ui.entry(parent, show=show)
-        if default:
-            e.insert(0, default)
-        e.pack(fill="x", pady=(0, theme.SP_12))
-        return e
-
     # ── actions ───────────────────────────────────────────────────────────────
 
-    def _next(self) -> None:
-        self._step += 1
-        self._show_step()
-
-    def _prev(self) -> None:
-        self._capture_form_draft()
-        self._step -= 1
-        self._show_step()
-
-    def _save_form(self) -> None:
-        url = self._e_url.get().strip()
-        key = self._e_key.get().strip()
-        model = self._e_model.get().strip()
-
-        # Persist before doing anything else.
-        self._draft_url, self._draft_key, self._draft_model = url, key, model
-
-        if not url or not key or not model:
-            ui.safe_alert(self._win, "Champs manquants", "Tous les champs sont obligatoires.")
-            return
-
+    def _begin(self) -> None:
+        # Sigma build: endpoint/key/model come from the bundled secrets file.
         try:
+            url, key, model = _load_sigma_secrets()
             cfg = Config(
                 api_base_url=url,
                 api_key=key,

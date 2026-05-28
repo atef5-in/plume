@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import tomllib
 from enum import StrEnum
 from pathlib import Path
@@ -14,9 +15,43 @@ CONFIG_DIR: Path = Path(user_config_dir("plume"))
 
 _DEFAULT_HOTKEY = "<ctrl>+<alt>+f"
 
+# Sigma Telecoms build: API endpoint, key, and model are read from a
+# `sigma_secrets.env` file that ships with the installer (bundled via
+# plume.spec) but is gitignored. Source never contains the secret.
+_SIGMA_SECRETS_FILENAME = "sigma_secrets.env"
+
 
 class ConfigError(Exception):
     pass
+
+
+def _sigma_secrets_path() -> Path:
+    """Locate the bundled sigma_secrets.env.
+
+    Frozen builds: extracted into sys._MEIPASS/plume/. Dev: next to this file.
+    """
+    if hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / "plume" / _SIGMA_SECRETS_FILENAME
+    return Path(__file__).parent / _SIGMA_SECRETS_FILENAME
+
+
+def _load_sigma_secrets() -> tuple[str, str, str]:
+    path = _sigma_secrets_path()
+    if not path.exists():
+        raise ConfigError(
+            f"Sigma secrets file missing: {path}. "
+            f"Copy {_SIGMA_SECRETS_FILENAME}.example to {_SIGMA_SECRETS_FILENAME} "
+            "and fill in the values before building."
+        )
+    vals = dotenv_values(path)
+    try:
+        return (
+            vals["SIGMA_API_BASE_URL"] or "",
+            vals["SIGMA_API_KEY"] or "",
+            vals["SIGMA_MODEL"] or "",
+        )
+    except KeyError as exc:
+        raise ConfigError(f"Sigma secrets file is missing key: {exc}") from exc
 
 
 class Mode(StrEnum):
@@ -93,10 +128,6 @@ def _config_file() -> Path:
     return CONFIG_DIR / "config.toml"
 
 
-def _env_file() -> Path:
-    return CONFIG_DIR / ".env"
-
-
 def load_config() -> Config:
     raw: dict[str, Any] = {}
 
@@ -105,15 +136,11 @@ def load_config() -> Config:
         with open(config_file, "rb") as f:
             raw = tomllib.load(f)
 
-    env_vals = dotenv_values(_env_file())
-    for env_key, field in (
-        ("PLUME_API_KEY", "api_key"),
-        ("PLUME_API_BASE_URL", "api_base_url"),
-        ("PLUME_MODEL", "model"),
-    ):
-        val = env_vals.get(env_key)
-        if val:
-            raw.setdefault(field, val)
+    # Sigma build: force the locked endpoint/key/model regardless of disk state.
+    url, key, model = _load_sigma_secrets()
+    raw["api_base_url"] = url
+    raw["api_key"] = key
+    raw["model"] = model
 
     try:
         cfg = Config.model_validate(raw)
@@ -129,12 +156,12 @@ def load_config() -> Config:
 
 
 def save_config(cfg: Config) -> None:
+    # Sigma build: api_base_url/api_key/model are locked at build time
+    # (see SIGMA_* constants) and intentionally not persisted to disk.
     config_dir = CONFIG_DIR
     config_dir.mkdir(parents=True, exist_ok=True)
 
     data: dict[str, Any] = {
-        "api_base_url": cfg.api_base_url,
-        "model": cfg.model,
         "hotkey": cfg.hotkey,
         "mode": cfg.mode.value,
     }
@@ -147,8 +174,3 @@ def save_config(cfg: Config) -> None:
 
     with open(_config_file(), "wb") as f:
         tomli_w.dump(data, f)
-
-    _env_file().write_text(
-        f"PLUME_API_KEY={cfg.api_key.get_secret_value()}\n",
-        encoding="utf-8",
-    )

@@ -1,0 +1,68 @@
+name: Build Windows Installer (Sigma)
+
+on:
+  push:
+    tags:
+      - 'sigma-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write Sigma secrets file
+        shell: pwsh
+        env:
+          SIGMA_API_BASE_URL: ${{ secrets.SIGMA_API_BASE_URL }}
+          SIGMA_API_KEY: ${{ secrets.SIGMA_API_KEY }}
+          SIGMA_MODEL: ${{ secrets.SIGMA_MODEL }}
+        run: |
+          if (-not $env:SIGMA_API_KEY) {
+            Write-Error "SIGMA_API_KEY repo secret is not set"
+            exit 1
+          }
+          @"
+          SIGMA_API_BASE_URL=$env:SIGMA_API_BASE_URL
+          SIGMA_API_KEY=$env:SIGMA_API_KEY
+          SIGMA_MODEL=$env:SIGMA_MODEL
+          "@ | Out-File -FilePath plume/sigma_secrets.env -Encoding utf8 -NoNewline
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install project dependencies
+        run: uv sync
+
+      - name: Install PyInstaller
+        run: uv pip install pyinstaller
+
+      - name: Build exe
+        run: uv run pyinstaller plume.spec
+
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = if ($env:GITHUB_REF -like "refs/tags/sigma-v*") {
+            $env:GITHUB_REF -replace "^refs/tags/sigma-v", ""
+          } else {
+            "0.0.0-dev"
+          }
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
+            "/DAppVersion=$version" `
+            "/DOutputName=PlumeSetup-Sigma" `
+            installer.iss
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Output/PlumeSetup-Sigma.exe
+          generate_release_notes: true

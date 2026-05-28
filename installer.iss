@@ -1,6 +1,9 @@
 #ifndef AppVersion
   #define AppVersion "0.0.0-dev"
 #endif
+#ifndef OutputName
+  #define OutputName "PlumeSetup"
+#endif
 
 [Setup]
 AppName=Plume
@@ -9,7 +12,7 @@ AppPublisher=atef5-in
 AppPublisherURL=https://github.com/atef5-in/Plume
 DefaultDirName={autopf}\Plume
 DefaultGroupName=Plume
-OutputBaseFilename=PlumeSetup
+OutputBaseFilename={#OutputName}
 OutputDir=Output
 Compression=lzma
 SolidCompression=yes

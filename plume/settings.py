@@ -33,16 +33,13 @@ from plume.ui import (
 from plume.ui import (
     secondary_button as _secondary_button,
 )
-from plume.ui import (
-    section_header as _section_header,
-)
 
 _WIDTH = 640
-_HEIGHT = 720
+_HEIGHT = 640
 _PAD = theme.SP_24
 _CARD_PAD = 18
-_TONES_LIST_H = 104
-_TONES_SCROLL_THRESHOLD = 2
+_TONES_LIST_H = 260
+_TONES_SCROLL_THRESHOLD = 5
 
 ctk.set_appearance_mode("dark")
 ctk.set_widget_scaling(1.0)
@@ -107,7 +104,7 @@ class SettingsDialog:
         ).pack(anchor="w", fill="x")
         _helper(
             frame,
-            "Connexion au modèle, raccourci global et tons de réécriture.",
+            "Raccourci global et tons de réécriture.",
         ).pack(anchor="w", fill="x", pady=(theme.SP_4, theme.SP_20))
 
         # Reserve the bottom strip for the footer BEFORE packing cards, so
@@ -117,27 +114,24 @@ class SettingsDialog:
         _secondary_button(bar, "Annuler", self._win.destroy).pack(side="left")
         _primary_button(bar, "Enregistrer", self._save).pack(side="right")
 
-        api_card = _card(frame)
-        api_card.pack(fill="x")
-        api_inner = ctk.CTkFrame(api_card, fg_color="transparent")
-        api_inner.pack(fill="x", padx=_CARD_PAD, pady=_CARD_PAD)
-        _section_header(api_inner, "Connexion").pack(anchor="w", fill="x")
-        _helper(
-            api_inner,
-            "Paramètres utilisés pour appeler l'API depuis n'importe quelle app.",
-        ).pack(anchor="w", fill="x", pady=(2, theme.SP_16))
-        self._e_url = self._field(api_inner, "URL de base de l'API", self._cfg.api_base_url)
-        self._e_key = self._field(
-            api_inner, "Clé API", self._cfg.api_key.get_secret_value(), show="*"
-        )
-        grid = ctk.CTkFrame(api_inner, fg_color="transparent")
-        grid.pack(fill="x")
-        grid.grid_columnconfigure(0, weight=1, uniform="field")
-        grid.grid_columnconfigure(1, weight=1, uniform="field")
-        self._e_model = self._field(grid, "Modèle", self._cfg.model, grid_col=0)
-        self._e_hotkey = self._field(grid, "Raccourci clavier", self._cfg.hotkey, grid_col=1)
-        for e in (self._e_url, self._e_key, self._e_model, self._e_hotkey):
-            e.bind("<Button-1>", lambda _ev, w=e: w.focus_set())
+        hk_card = _card(frame)
+        hk_card.pack(fill="x")
+        hk_inner = ctk.CTkFrame(hk_card, fg_color="transparent")
+        hk_inner.pack(fill="x", padx=_CARD_PAD, pady=theme.SP_12)
+        row = ctk.CTkFrame(hk_inner, fg_color="transparent")
+        row.pack(fill="x")
+        ctk.CTkLabel(
+            row,
+            text="Raccourci clavier",
+            text_color=theme.TEXT_PRIMARY,
+            font=_font(13, bold=True),
+            anchor="w",
+        ).pack(side="left")
+        self._e_hotkey = _entry(row)
+        self._e_hotkey.configure(width=220)
+        self._e_hotkey.insert(0, self._cfg.hotkey)
+        self._e_hotkey.pack(side="right")
+        self._e_hotkey.bind("<Button-1>", lambda _ev: self._e_hotkey.focus_set())
 
         tones_card = _card(frame)
         tones_card.pack(fill="x", pady=(theme.SP_16, 0))
@@ -355,13 +349,10 @@ class SettingsDialog:
     # ── save ──────────────────────────────────────────────────────────────────
 
     def _save(self) -> None:
-        url = self._e_url.get().strip()
-        key = self._e_key.get().strip()
-        model = self._e_model.get().strip()
         hotkey = self._e_hotkey.get().strip()
 
-        if not url or not key or not model or not hotkey:
-            _safe_alert(self._win, "Champs manquants", "Tous les champs sont obligatoires.")
+        if not hotkey:
+            _safe_alert(self._win, "Champ manquant", "Le raccourci est obligatoire.")
             return
 
         tone_names = {t.name for t in self._tones}
@@ -371,15 +362,13 @@ class SettingsDialog:
             mode = Mode.FIX_FRENCH
 
         try:
-            cfg = Config(
-                api_base_url=url,
-                api_key=key,
-                model=model,
-                hotkey=hotkey,
-                mode=mode,
-                widget_position=self._cfg.widget_position,
-                tones=self._tones,
-                active_tone=active_tone,
+            cfg = self._cfg.model_copy(
+                update={
+                    "hotkey": hotkey,
+                    "mode": mode,
+                    "tones": self._tones,
+                    "active_tone": active_tone,
+                }
             )
             save_config(cfg)
         except Exception as exc:

@@ -1,8 +1,10 @@
-# Plume — French/English Text Fixer & Translator
+# Plume — French/English Text Fixer & Translator (Sigma Telecoms build)
 
 ## What this is
 
 A desktop tool for Linux and Windows that fixes and translates text in any application via a global hotkey and an always-on-top floating widget. Supports 5 modes: fix French, fix English, translate FR→EN, translate EN→FR, and rewrite-in-custom-tone (user-defined tones). Built for a developer on a QWERTY keyboard writing professional French without accent characters.
+
+**This is the `client/sigma` branch** — a Sigma Telecoms variant where the LLM endpoint, key, and model are locked at build time so the settings UI exposes only the hotkey and tones. See [Sigma build differences](#sigma-build-differences) below.
 
 **The contract is strict: fix only spelling/accents/punctuation/grammar; never change meaning, never add or remove information.** The rewrite-tone mode inherits the same fidelity contract — light rephrasing for register/tone is allowed, but no restructuring, no added or dropped information, dates/numbers/durations preserved verbatim.
 
@@ -15,10 +17,14 @@ A desktop tool for Linux and Windows that fixes and translates text in any appli
 ```
 plume/
 ├── plume.spec           # PyInstaller spec (includes customtkinter data files)
-├── installer.iss        # Inno Setup script for PlumeSetup.exe
+├── installer.iss        # Inno Setup script — OutputBaseFilename={#OutputName}
 ├── plume.ico            # App icon (multi-size: 16/24/32/48/64/128/256)
-├── .github/workflows/build-windows.yml  # CI on v* tags
+├── .github/workflows/
+│   ├── build-windows.yml        # master build, v* tags → PlumeSetup.exe
+│   └── build-windows-sigma.yml  # Sigma build, sigma-v* tags → PlumeSetup-Sigma.exe
 └── plume/
+    ├── sigma_secrets.env        # gitignored; bundled into the frozen app
+    ├── sigma_secrets.env.example # placeholder template (committed)
     ├── __main__.py      # CLI: init / fix / run subcommands
     ├── app.py           # PlumeApp — bootstrap, wires everything
     ├── capture.py       # capture_selection()
@@ -38,20 +44,17 @@ plume/
     └── wizard.py        # FirstRunWizard — 3-step CTkToplevel with progress bar
 ```
 
-## LLM endpoint
+## LLM endpoint (Sigma build)
 
-- Base URL: `http://148.230.93.60:4000` (internal LiteLLM proxy)
-- Default model: `ministral-3:8b-cloud`
-- Avoid: large subscription-only models (mistral 675B, deepseek 671B), proprietary `gemini-3-flash-preview`
+Endpoint URL, API key, and model are read from `plume/sigma_secrets.env` (gitignored) and **locked** — `load_config()` overrides whatever may sit in `config.toml` on every load. See `_load_sigma_secrets()` in `config.py`. In CI the file is written from `SIGMA_API_BASE_URL` / `SIGMA_API_KEY` / `SIGMA_MODEL` repo secrets before PyInstaller runs.
 
 ## Config files (runtime)
 
 | File | Contents |
 |---|---|
-| `~/.config/plume/config.toml` (Linux) / `%LOCALAPPDATA%\plume\plume\config.toml` (Windows) | `api_base_url`, `model`, `hotkey`, `mode`, `widget_position`, `tones`, `active_tone` |
-| same dir / `.env` | `PLUME_API_KEY` only |
+| `~/.config/plume/config.toml` (Linux) / `%LOCALAPPDATA%\plume\plume\config.toml` (Windows) | `hotkey`, `mode`, `widget_position`, `tones`, `active_tone` |
 
-Paths via `platformdirs.user_config_dir("plume")`. `CONFIG_DIR` in `config.py` is monkeypatchable in tests.
+The Sigma build does **not** write a `.env` and does **not** persist `api_base_url`/`api_key`/`model` to disk. Paths via `platformdirs.user_config_dir("plume")`. `CONFIG_DIR` in `config.py` is monkeypatchable in tests; `_load_sigma_secrets` is monkeypatched in `tests/test_config.py`.
 
 ## The 5 modes (config.py — Mode enum)
 
@@ -93,9 +96,9 @@ Strip whitespace → strip surrounding quotes → strip preamble lines → strip
 
 **Shared UI module** (`ui.py`): `primary_button`, `secondary_button`, `card_action_button`, `entry`, `field_label`, `helper`, `section_header`, `card`, and `safe_alert(win, title, msg)` which releases grab around messagebox calls to prevent the frameless-modal deadlock.
 
-**Settings dialog**: 640×720, two cards (Connexion: URL/key/model/hotkey with model+hotkey in a 2-col grid · Tons personnalisés: header with inline +Ajouter/Modifier/Supprimer + CTkScrollableFrame list + amber callout). Footer reserved with `side="bottom"` BEFORE packing cards so it can't get squeezed out.
+**Settings dialog** (Sigma): 640×640, two cards. Compact **Raccourci** card (label-left/entry-right single row, no helper text) + **Tons personnalisés** card (260px list, scrolls past 5 tones, header with inline +Ajouter/Modifier/Supprimer, amber callout). The Connexion card from the upstream build is removed — the endpoint/key/model are not user-editable. Footer reserved with `side="bottom"` BEFORE packing cards so it can't get squeezed out.
 
-**Wizard**: 580×520, 3 steps (Welcome → Form → Done), 3-segment progress bar at top (uniform-column grid). Form fields persist across Retour/Commencer navigation via `_draft_*` instance attrs. Done step shows a Pillow-rendered emerald success circle. API key field auto-focuses on form step.
+**Wizard** (Sigma): 580×520, **2 steps** (Welcome → Done) with a 2-segment progress bar. Clicking "Commencer" calls `_load_sigma_secrets()`, builds a `Config` with the locked values + `DEFAULT_TONES`, saves it, and advances to Done. No form step, no draft state. Done step shows a Pillow-rendered emerald success circle.
 
 **Tone editor**: 520×440 with the same patterns. Name field auto-focuses on open.
 
@@ -116,15 +119,20 @@ Strip whitespace → strip surrounding quotes → strip preamble lines → strip
 
 ## Windows installer
 
-Triggered by pushing a `v*` tag. `.github/workflows/build-windows.yml` runs on `windows-latest`:
-1. `uv sync` + `uv pip install pyinstaller`
-2. `pyinstaller plume.spec` → `dist/plume/` (onedir, no console)
-3. Inno Setup `installer.iss` (`AppVersion` injected via `ISCC /DAppVersion=<tag>` so the setup wizard shows the real version) → `Output/PlumeSetup.exe`
-4. Published as GitHub Release asset
+Two parallel workflows on `windows-latest`:
 
-`plume.spec` uses `collect_data_files("customtkinter")` to bundle its theme JSON files — without that, the .exe crashes on first dialog open. Installer needs no admin, installs to `%ProgramFiles%\Plume`, adds startup registry entry, includes uninstaller.
+| Workflow | Trigger | Output |
+|---|---|---|
+| `.github/workflows/build-windows.yml` | `v*` tag | `PlumeSetup.exe` (master/upstream build) |
+| `.github/workflows/build-windows-sigma.yml` | `sigma-v*` tag | `PlumeSetup-Sigma.exe` (this branch) |
 
-To release: `git tag v0.x.0 && git push origin v0.x.0`.
+Both run: `uv sync` → `uv pip install pyinstaller` → `pyinstaller plume.spec` → Inno Setup with `/DAppVersion=<version> /DOutputName=<name>` → GitHub Release asset.
+
+**Sigma workflow extras** — first step writes `plume/sigma_secrets.env` from the `SIGMA_API_BASE_URL` / `SIGMA_API_KEY` / `SIGMA_MODEL` repo secrets (fails fast if `SIGMA_API_KEY` is empty). Without this file, PyInstaller would bundle nothing and the .exe would crash on launch.
+
+`plume.spec` uses `collect_data_files("customtkinter")` to bundle theme JSON files and adds `plume/sigma_secrets.env` to `datas`. `installer.iss` parameterizes both `AppVersion` and `OutputName` via `#ifndef` guards.
+
+To release: `git tag sigma-v0.x.0 && git push origin sigma-v0.x.0`.
 
 ## Running the app (dev)
 
@@ -180,6 +188,18 @@ uv run ruff check plume tests
 uv run ruff format --check plume tests
 uv run mypy plume
 ```
+
+## Sigma build differences
+
+Diff vs. master, in one place:
+
+- **Locked LLM config**: `api_base_url` / `api_key` / `model` come from `plume/sigma_secrets.env` (gitignored, bundled by PyInstaller). `load_config()` ignores any value for these three fields in `config.toml` and overwrites them every load. `save_config()` does not persist them and does not write a `.env`.
+- **Settings UI**: Connexion card removed. Only **Raccourci** (compact one-row) + **Tons personnalisés** remain. See `plume/settings.py`.
+- **First-run wizard**: collapsed to 2 steps (Welcome → Done). "Commencer" auto-seeds the config; no API form. See `plume/wizard.py`.
+- **CI**: separate `build-windows-sigma.yml`, triggered by `sigma-v*` tags, reads secrets from GH Actions secrets, emits `PlumeSetup-Sigma.exe`.
+- **Tests**: `tests/test_config.py` monkeypatches `_load_sigma_secrets` to avoid coupling to the real bundled file.
+
+Nothing else changes — the 5 modes, the floating widget, the tone editor, the response-parsing/fixer pipeline, and the fidelity contract are all identical to master.
 
 ## Hard constraints
 
